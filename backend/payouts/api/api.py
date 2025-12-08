@@ -3,6 +3,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAdminUser
+from payouts.pagination import PayoutCursorPagination
 
 
 from payouts.serializers import (
@@ -33,11 +34,16 @@ class PayoutListCreateAPIView(APIView):
     """
 
     permission_classes = [AllowAny]  # при желании можно ограничить
+    pagination_class = PayoutCursorPagination
 
     def get(self, request):
-        payouts = list_payouts()
-        serializer = PayoutSerializer(payouts, many=True)
-        return Response(serializer.data)
+        qs = list_payouts()
+
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(qs, request)
+
+        serializer = PayoutSerializer(page, many=True)
+        return paginator.get_paginated_response(serializer.data)
 
     def post(self, request):
         serializer = PayoutCreateSerializer(data=request.data)
@@ -46,15 +52,21 @@ class PayoutListCreateAPIView(APIView):
         recipient_id = serializer.validated_data["recipient_id"]
         amount = serializer.validated_data["amount"]
         currency = serializer.validated_data["currency"]
+        idempotency_key = serializer.validated_data["idempotency_key"]
 
         recipient = RecipientRepository.get_recipient_by_id(recipient_id)
 
-        payout = create_payout(
+        payout, is_duplicate = create_payout(
             recipient=recipient,
             amount=amount,
-            currency=currency
+            currency=currency,
+            idempotency_key=idempotency_key,
         )
-        return Response(PayoutSerializer(payout).data, status=status.HTTP_201_CREATED)
+
+        response_data = PayoutSerializer(payout).data
+        status_code = status.HTTP_200_OK if is_duplicate else status.HTTP_201_CREATED
+
+        return Response(response_data, status=status_code)
 
 
 class PayoutDetailAPIView(APIView):
@@ -97,3 +109,4 @@ class PayoutDetailAPIView(APIView):
         payout = PayoutRepository.get_payout_by_id(pk)
         payout.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+

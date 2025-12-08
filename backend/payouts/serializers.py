@@ -1,7 +1,8 @@
 from rest_framework import serializers
 
 from .models import Recipient, Payout
-from . import services
+from . import services  # (можно удалить, если не используется, но это опционально)
+
 
 class PayoutSerializer(serializers.ModelSerializer):
     recipient_id = serializers.IntegerField(source="recipient.id", read_only=True)
@@ -20,14 +21,15 @@ class PayoutSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        
+
 
 class PayoutCreateSerializer(serializers.ModelSerializer):
     recipient_id = serializers.IntegerField()
+    idempotency_key = serializers.CharField(write_only=True)  # NEW: обязательный ключ, не попадает в вывод
 
     class Meta:
         model = Payout
-        fields = ["recipient_id", "amount", "currency"]
+        fields = ["recipient_id", "amount", "currency", "idempotency_key"]  # CHANGED: добавили поле
 
 
 class PayoutPartialUpdateSerializer(serializers.ModelSerializer):

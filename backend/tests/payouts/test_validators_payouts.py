@@ -1,4 +1,4 @@
-# backend/tests/payouts/test_validators.py
+# backend/tests/payouts/test_validators_payouts.py
 from decimal import Decimal
 
 import pytest
@@ -13,6 +13,7 @@ from payouts.validators import (
     validate_recipient_active,
     validate_payout_status_transition,
     ensure_can_change_payout_status,
+    validate_idempotency_key,  # NEW
 )
 
 
@@ -183,7 +184,11 @@ def test_ensure_can_change_payout_status_staff_ok():
     actor = DummyUser(is_staff=True)
     payout = _make_payout(Payout.Status.NEW)
     # не должно кидать
-    ensure_can_change_payout_status(actor=actor, payout=payout, new_status=Payout.Status.PROCESSING)
+    ensure_can_change_payout_status(
+        actor=actor,
+        payout=payout,
+        new_status=Payout.Status.PROCESSING,
+    )
 
 
 @pytest.mark.parametrize(
@@ -196,5 +201,42 @@ def test_ensure_can_change_payout_status_staff_ok():
 def test_ensure_can_change_payout_status_non_staff_raises(actor):
     payout = _make_payout(Payout.Status.NEW)
     with pytest.raises(DomainPermissionError) as exc:
-        ensure_can_change_payout_status(actor=actor, payout=payout, new_status=Payout.Status.PROCESSING)
+        ensure_can_change_payout_status(
+            actor=actor,
+            payout=payout,
+            new_status=Payout.Status.PROCESSING,
+        )
     assert "Недостаточно прав" in str(exc.value)
+
+
+# ============================================================
+# validate_idempotency_key
+# ============================================================
+
+def test_validate_idempotency_key_ok():
+    """Корректный idempotency_key не должен кидать исключение."""
+    validate_idempotency_key("abcde12345")
+    validate_idempotency_key("IDEMPOTENT-KEY_123")
+    validate_idempotency_key("a" * 8)
+    validate_idempotency_key("b" * 64)
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "",
+        "   ",              # только пробелы
+        "short",            # меньше 8 символов
+        "x" * 65,           # больше 64 символов
+        "bad key",          # пробел
+        "bad$key",          # запрещённый символ $
+        "русский",          # не латиница
+    ],
+)
+def test_validate_idempotency_key_invalid_raises(value):
+    with pytest.raises(DomainValidationError) as exc:
+        validate_idempotency_key(value)
+
+    msg = str(exc.value).lower()
+    # во всех ошибках фигурирует фраза idempotency key
+    assert "idempotency key" in msg

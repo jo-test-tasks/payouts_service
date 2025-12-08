@@ -24,6 +24,7 @@ def test_payout_create_serializer_valid_data():
         "recipient_id": 1,           # сам факт существования recipient тут не проверяется
         "amount": "100.50",
         "currency": "USD",
+        "idempotency_key": "idem-123456",  # NEW
     }
 
     serializer = PayoutCreateSerializer(data=data)
@@ -34,6 +35,8 @@ def test_payout_create_serializer_valid_data():
     assert isinstance(validated["amount"], Decimal)
     assert validated["amount"] == Decimal("100.50")
     assert validated["currency"] == "USD"
+    # idempotency_key тоже должен пройти как строка
+    assert validated["idempotency_key"] == "idem-123456"
 
 
 def test_payout_create_serializer_missing_required_fields():
@@ -49,6 +52,8 @@ def test_payout_create_serializer_missing_required_fields():
     assert "recipient_id" in errors
     assert "amount" in errors
     assert "currency" in errors
+    # NEW: теперь idempotency_key тоже обязателен
+    assert "idempotency_key" in errors
 
 
 def test_payout_create_serializer_invalid_amount_format():
@@ -59,12 +64,18 @@ def test_payout_create_serializer_invalid_amount_format():
         "recipient_id": 1,
         "amount": "not-a-decimal",
         "currency": "USD",
+        "idempotency_key": "idem-123456",
     }
 
     serializer = PayoutCreateSerializer(data=data)
     assert not serializer.is_valid()
     errors = serializer.errors
+    # проверяем, что именно amount подсвечен как неверный
     assert "amount" in errors
+    # остальные поля ок — их в errors быть не должно
+    assert "recipient_id" not in errors
+    assert "currency" not in errors
+    assert "idempotency_key" not in errors
 
 
 def test_payout_create_serializer_currency_too_long():
@@ -75,12 +86,37 @@ def test_payout_create_serializer_currency_too_long():
         "recipient_id": 1,
         "amount": "10.00",
         "currency": "TOO_LONG",  # > 3 символов
+        "idempotency_key": "idem-123456",
     }
 
     serializer = PayoutCreateSerializer(data=data)
     assert not serializer.is_valid()
     errors = serializer.errors
     assert "currency" in errors
+    # остальные поля валидны
+    assert "recipient_id" not in errors
+    assert "amount" not in errors
+    assert "idempotency_key" not in errors
+
+
+# Доп. тест (опционально): idempotency_key не попадает в .data (write_only)
+def test_payout_create_serializer_idempotency_key_write_only():
+    data = {
+        "recipient_id": 1,
+        "amount": "10.00",
+        "currency": "USD",
+        "idempotency_key": "idem-123456",
+    }
+
+    serializer = PayoutCreateSerializer(data=data)
+    assert serializer.is_valid(), serializer.errors
+
+    # .validated_data содержит idempotency_key
+    assert "idempotency_key" in serializer.validated_data
+
+    # .data — это "выход" сериализатора, для write_only поля его быть не должно
+    rep = serializer.data
+    assert "idempotency_key" not in rep
 
 
 # ============================================================================
