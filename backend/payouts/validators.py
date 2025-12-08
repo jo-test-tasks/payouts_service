@@ -93,3 +93,28 @@ def ensure_can_change_payout_status(*, actor, payout: Payout, new_status: str) -
     # но для "по уму" делаем так:
     if actor is None or not getattr(actor, "is_staff", False):
         raise DomainPermissionError("Недостаточно прав для смены статуса выплаты.")
+    
+
+def validate_idempotency_key(key: str) -> None:
+    """
+    Доменная проверка идемпотентного ключа:
+    - не пустой;
+    - разумная длина;
+    - только безопасные символы.
+    """
+    if not key:
+        raise DomainValidationError("Idempotency key обязателен.")
+
+    value = key.strip()
+
+    if len(value) < 8 or len(value) > 64:
+        raise DomainValidationError(
+            "Длина idempotency key должна быть от 8 до 64 символов."
+        )
+
+    # Разрешаем только буквы, цифры, '-', '_'
+    allowed_chars = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_")
+    if any(ch not in allowed_chars for ch in value):
+        raise DomainValidationError(
+            "Idempotency key может содержать только буквы, цифры, '-' и '_'."
+        )

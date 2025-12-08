@@ -27,11 +27,15 @@ def test_create_payout_success():
         is_active=True,
     )
 
-    payout = create_payout(
+    payout, is_duplicate = create_payout(
         recipient=recipient,
         amount=Decimal("100.50"),
         currency="usd",  # специально в нижнем регистре, проверим .upper()
+        idempotency_key="idem-123456",
     )
+
+    # флаг идемпотентности
+    assert is_duplicate is False
 
     # Появился id → сохранён в БД
     assert payout.id is not None
@@ -67,6 +71,7 @@ def test_create_payout_negative_amount_raises(value):
             recipient=recipient,
             amount=Decimal(value),
             currency="USD",
+            idempotency_key="idem-amount-test",
         )
 
     assert "Сумма выплаты должна быть больше нуля" in str(exc.value)
@@ -88,9 +93,11 @@ def test_create_payout_unsupported_currency_raises():
             recipient=recipient,
             amount=Decimal("10.00"),
             currency="BTC",  # не из SUPPORTED_CURRENCIES
+            idempotency_key="idem-unsupported-currency",
         )
 
-    assert "валюта не поддерживается" in str(exc.value)
+    # текст сейчас: "Данная валюта не поддерживается системой."
+    assert "не поддерживается" in str(exc.value)
 
 
 @pytest.mark.django_db
@@ -109,9 +116,50 @@ def test_create_payout_inactive_recipient_raises():
             recipient=recipient,
             amount=Decimal("10.00"),
             currency="USD",
+            idempotency_key="idem-inactive-recipient",
         )
 
     assert "Нельзя создать выплату неактивному получателю" in str(exc.value)
+
+
+@pytest.mark.django_db
+def test_create_payout_idempotent_second_call_returns_same_and_flag_true():
+    """
+    Два вызова с одинаковым idempotency_key:
+    - первая выплата создаётся (is_duplicate=False)
+    - вторая возвращает ту же выплату (is_duplicate=True)
+    """
+    recipient = Recipient.objects.create(
+        type=Recipient.Type.INDIVIDUAL,
+        name="John Doe",
+        account_number="UA1234567890",
+        bank_code="MFO123",
+        country="UA",
+        is_active=True,
+    )
+
+    key = "idem-duplicate-test"
+
+    first_payout, first_flag = create_payout(
+        recipient=recipient,
+        amount=Decimal("50.00"),
+        currency="USD",
+        idempotency_key=key,
+    )
+
+    second_payout, second_flag = create_payout(
+        recipient=recipient,
+        amount=Decimal("50.00"),
+        currency="USD",
+        idempotency_key=key,
+    )
+
+    assert first_flag is False
+    assert second_flag is True
+
+    # это одна и та же выплата
+    assert first_payout.id == second_payout.id
+    assert Payout.objects.count() == 1
 
 
 # ============================================================================

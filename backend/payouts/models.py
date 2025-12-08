@@ -1,6 +1,4 @@
-from django.db import models
-
-from django.db import models
+from django.db import models  # CHANGED: убран дубликат импорта ниже
 
 
 class Recipient(models.Model):
@@ -78,6 +76,12 @@ class Payout(models.Model):
 
     # --- Бизнес-параметры выплаты ---
 
+    idempotency_key = models.CharField(  # NEW
+        max_length=64,                   # NEW
+        unique=True,                     # NEW  (уникальный индекс для идемпотентности)
+        help_text="Ключ для идемпотентного создания выплаты.",  # NEW
+    )
+
     amount = models.DecimalField(
         max_digits=12,
         decimal_places=2,
@@ -94,6 +98,7 @@ class Payout(models.Model):
         choices=Status.choices,
         default=Status.NEW,
         help_text="Текущий статус заявки.",
+        db_index=True,  # CHANGED: добавлен индекс по статусу
     )
 
     # --- Снэпшот реквизитов получателя на момент создания выплаты ---
@@ -117,6 +122,7 @@ class Payout(models.Model):
     created_at = models.DateTimeField(
         auto_now_add=True,
         help_text="Когда заявка была создана.",
+        db_index=True,  # CHANGED: индекс по дате создания (для сортировок/курсора)
     )
 
     updated_at = models.DateTimeField(
@@ -129,6 +135,10 @@ class Payout(models.Model):
         verbose_name = "Заявка на выплату"
         verbose_name_plural = "Заявки на выплату"
         ordering = ("-created_at",)
+        indexes = [  # NEW
+            models.Index(fields=("status", "created_at")),    # NEW: частый запрос "по статусу за период"
+            models.Index(fields=("recipient", "created_at")), # NEW: история выплат по получателю
+        ]  # NEW
 
     def __str__(self) -> str:
         return (

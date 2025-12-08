@@ -47,6 +47,7 @@ class TestPayoutListCreateAPI:
             recipient_name_snapshot=recipient.name,
             account_number_snapshot=recipient.account_number,
             bank_code_snapshot=recipient.bank_code,
+            idempotency_key="idem-list-1",
         )
         p2 = Payout.objects.create(
             recipient=recipient,
@@ -56,6 +57,7 @@ class TestPayoutListCreateAPI:
             recipient_name_snapshot=recipient.name,
             account_number_snapshot=recipient.account_number,
             bank_code_snapshot=recipient.bank_code,
+            idempotency_key="idem-list-2",
         )
 
         response = self.client.get(API_LIST_URL)
@@ -74,6 +76,7 @@ class TestPayoutListCreateAPI:
             "recipient_id": recipient.id,
             "amount": "100.50",
             "currency": "USD",
+            "idempotency_key": "idem-api-create-1",
         }
 
         response = self.client.post(API_LIST_URL, data=payload, format="json")
@@ -94,11 +97,34 @@ class TestPayoutListCreateAPI:
         assert payout.account_number_snapshot == recipient.account_number
         assert payout.bank_code_snapshot == recipient.bank_code
 
+    @pytest.mark.django_db
+    def test_create_payout_idempotent_second_time_returns_200_and_same_id(self):
+        recipient = self._create_recipient(is_active=True)
+
+        payload = {
+            "recipient_id": recipient.id,
+            "amount": "50.00",
+            "currency": "USD",
+            "idempotency_key": "idem-api-dup-1",
+        }
+
+        first = self.client.post(API_LIST_URL, data=payload, format="json")
+        second = self.client.post(API_LIST_URL, data=payload, format="json")
+
+        assert first.status_code == 201
+        assert second.status_code == 200
+
+        first_data = first.json()
+        second_data = second.json()
+        assert first_data["id"] == second_data["id"]
+        assert Payout.objects.count() == 1
+
     def test_create_payout_recipient_not_found_returns_404(self):
         payload = {
             "recipient_id": 9999,  # такого нет
             "amount": "50.00",
             "currency": "USD",
+            "idempotency_key": "idem-api-not-found",
         }
 
         response = self.client.post(API_LIST_URL, data=payload, format="json")
@@ -133,6 +159,7 @@ class TestPayoutDetailAPI:
             recipient_name_snapshot=recipient.name,
             account_number_snapshot=recipient.account_number,
             bank_code_snapshot=recipient.bank_code,
+            idempotency_key=f"idem-detail-{status}",
         )
 
     def test_get_payout_detail_success(self):
