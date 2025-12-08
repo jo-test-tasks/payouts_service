@@ -3,6 +3,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAdminUser
+from payouts.pagination import PayoutCursorPagination
 
 
 from payouts.serializers import (
@@ -33,11 +34,16 @@ class PayoutListCreateAPIView(APIView):
     """
 
     permission_classes = [AllowAny]  # при желании можно ограничить
+    pagination_class = PayoutCursorPagination
 
     def get(self, request):
-        payouts = list_payouts()
-        serializer = PayoutSerializer(payouts, many=True)
-        return Response(serializer.data)
+        qs = list_payouts()
+
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(qs, request)
+
+        serializer = PayoutSerializer(page, many=True)
+        return paginator.get_paginated_response(serializer.data)
 
     def post(self, request):
         serializer = PayoutCreateSerializer(data=request.data)

@@ -33,8 +33,11 @@ class TestPayoutListCreateAPI:
 
         assert response.status_code == 200
         data = response.json()
-        assert isinstance(data, list)
-        assert data == []
+
+        # теперь ответ пагинированный
+        assert isinstance(data, dict)
+        assert set(data.keys()) == {"next", "previous", "results"}
+        assert data["results"] == []
 
     def test_list_payouts_returns_created_payouts(self):
         recipient = self._create_recipient()
@@ -64,9 +67,14 @@ class TestPayoutListCreateAPI:
 
         assert response.status_code == 200
         data = response.json()
+
+        assert isinstance(data, dict)
+        assert "results" in data
+        results = data["results"]
+
         # простой чек: два элемента и нужные id
-        assert len(data) == 2
-        returned_ids = {item["id"] for item in data}
+        assert len(results) == 2
+        returned_ids = {item["id"] for item in results}
         assert returned_ids == {p1.id, p2.id}
 
     def test_create_payout_success(self):
@@ -92,7 +100,6 @@ class TestPayoutListCreateAPI:
         assert payout.currency == "USD"
         assert payout.status == Payout.Status.NEW
 
-        # снапшоты должны быть заполнены из recipient
         assert payout.recipient_name_snapshot == recipient.name
         assert payout.account_number_snapshot == recipient.account_number
         assert payout.bank_code_snapshot == recipient.bank_code
@@ -131,7 +138,7 @@ class TestPayoutListCreateAPI:
 
         assert response.status_code == 404
         data = response.json()
-        assert "detail" in data  # текст берётся из DomainNotFoundError + custom handler
+        assert "detail" in data
 
 
 @pytest.mark.django_db
