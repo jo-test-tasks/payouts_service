@@ -1,0 +1,60 @@
+# docker-compose.yml (DEV)
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: payouts_db
+    environment:
+      POSTGRES_DB: payouts_dev
+      POSTGRES_USER: payouts_user
+      POSTGRES_PASSWORD: payouts_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: always
+
+  redis:
+    image: redis:7-alpine
+    container_name: payouts_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: always
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev   # ← dev Dockerfile
+    container_name: payouts_web
+    command: ["bash", "-c", "python manage.py runserver 0.0.0.0:8000"]
+    volumes:
+      - ./backend:/app/backend     # ← bind-mount кода для разработки
+    env_file:
+      - .env.dev
+    depends_on:
+      - db
+      - redis
+    ports:
+      - "8000:8000"
+    restart: always
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev   # ← тот же dev-образ
+    container_name: payouts_worker
+    command: ["bash", "-c", "celery -A config worker -l info"]
+    volumes:
+      - ./backend:/app/backend
+    env_file:
+      - .env.dev
+    depends_on:
+      - db
+      - redis
+      - web
+    restart: always
+
+volumes:
+  postgres_data:
+  redis_data:

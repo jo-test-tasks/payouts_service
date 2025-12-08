@@ -1,0 +1,94 @@
+# ===========================
+# Python
+# ===========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+env/
+venv/
+.venv/
+ENV/
+env.bak/
+
+# ===========================
+# Django
+# ===========================
+*.log
+*.pot
+*.pyc
+*.mo
+local_settings.py
+db.sqlite3
+media/
+staticfiles/
+
+# Если хочешь игнорировать миграции — раскомментируй (но для тестового лучше оставить)
+# */migrations/*
+# !*/migrations/__init__.py
+
+# ===========================
+# Environment files
+# ===========================
+.env
+.env.*
+!.env.example
+
+# ===========================
+# Docker
+# ===========================
+# PID / temp files
+*.pid
+*.pid.lock
+
+# docker local volumes
+data/
+postgres_data/
+redis_data/
+
+# docker-compose override
+docker-compose.override.yml
+
+# ===========================
+# Celery
+# ===========================
+celerybeat-schedule
+celerybeat.pid
+
+# ===========================
+# VSCode / Editors
+# ===========================
+.vscode/
+*.code-workspace
+.idea/
+
+# ===========================
+# Pytest / Coverage / Cache
+# ===========================
+.pytest_cache/
+.cache/
+.tox/
+.coverage
+coverage.xml
+htmlcov/
+.mypy_cache/
+ruff_cache/
+.pytype/
+
+# ===========================
+# OS files
+# ===========================
+.DS_Store
+Thumbs.db
+
+# ===========================
+# Compiled translations
+# ===========================
+*.mo
+*.pot

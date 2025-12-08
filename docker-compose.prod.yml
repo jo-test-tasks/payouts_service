@@ -1,0 +1,51 @@
+# docker-compose.prod.yml (PROD)
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: payouts_db_prod
+    environment:
+      POSTGRES_DB: payouts_prod
+      POSTGRES_USER: payouts_user
+      POSTGRES_PASSWORD: payouts_password
+    volumes:
+      - postgres_data_prod:/var/lib/postgresql/data
+    restart: always
+
+  redis:
+    image: redis:7-alpine
+    container_name: payouts_redis_prod
+    volumes:
+      - redis_data_prod:/data
+    restart: always
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile       # ← PROD Dockerfile
+    container_name: payouts_web_prod
+    env_file:
+      - .env.prod
+    depends_on:
+      - db
+      - redis
+    ports:
+      - "8000:8000"                # на реальном сервере можно "80:8000"
+    restart: always
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile       # ← тот же prod-образ
+    container_name: payouts_worker_prod
+    command: ["bash", "-c", "celery -A config worker -l info"]
+    env_file:
+      - .env.prod
+    depends_on:
+      - db
+      - redis
+      - web
+    restart: always
+
+volumes:
+  postgres_data_prod:
+  redis_data_prod:
