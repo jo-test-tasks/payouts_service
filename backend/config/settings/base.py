@@ -187,4 +187,39 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework.authentication.SessionAuthentication",
     ],
+    
+    # ========= Throttling =========
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",   # для неавторизованных
+        "rest_framework.throttling.UserRateThrottle",   # для авторизованных
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "100/day",    # аноним может сделать до 100 запросов в день
+        "user": "1000/day",   # пользователь — до 1000 запросов в день
+    },
 }
+
+# Celery
+CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://redis:6379/0")
+
+# Мы игнорируем результаты — значит result backend нам НЕ нужен
+CELERY_RESULT_BACKEND = None
+
+# Чтобы Celery не пытался записывать результаты
+CELERY_TASK_IGNORE_RESULT = True
+
+# Стандартная сериализация
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"   # не обязателен, но пусть будет
+
+CELERY_TIMEZONE = "UTC"
+
+# Cache
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": os.getenv("REDIS_CACHE_URL", "redis://redis:6379/2"),
+    }
+}
+
