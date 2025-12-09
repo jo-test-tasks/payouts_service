@@ -3,6 +3,8 @@ from decimal import Decimal
 
 from django.db import transaction, IntegrityError
 
+from core.event_bus import event_bus
+from payouts.events import PayoutCreated
 from .models import Recipient, Payout
 from .validators import (
     validate_amount_positive,
@@ -48,12 +50,17 @@ def create_payout(
             status=Payout.Status.NEW,
             idempotency_key=idempotency_key,
         )
-        return payout, False  # новая выплата
+
+        
     except IntegrityError:
         # гонка: другой процесс успел создать выплату
         payout = PayoutRepository.get_payout_by_idempotency_key(idempotency_key)
         return payout, True
 
+    transaction.on_commit(
+        lambda: event_bus.publish(PayoutCreated(payout_id=payout.id))
+        )
+    return payout, False  # новая выплата
 
 @transaction.atomic
 def set_payout_status(

@@ -58,7 +58,7 @@ THIRD_PARTY_APPS = [
 
 # 3) Локальные приложения проекта (наш домен)
 LOCAL_APPS = [
-    "payouts",
+    "payouts.apps.PayoutsConfig",
     # "core",
 ]
 
