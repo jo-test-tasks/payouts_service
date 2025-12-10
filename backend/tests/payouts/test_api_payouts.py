@@ -3,6 +3,7 @@ from decimal import Decimal
 
 import pytest
 from django.contrib.auth import get_user_model
+from django.core.cache import cache  # 👈 ДОБАВИЛИ
 from rest_framework.test import APIClient
 
 from payouts.models import Recipient, Payout
@@ -11,6 +12,17 @@ User = get_user_model()
 
 
 API_LIST_URL = "/api/payouts/"
+
+
+@pytest.fixture(autouse=True)
+def clear_cache():
+    """
+    Чистим кеш перед каждым тестом, чтобы
+    старые закешированные страницы списка не мешали.
+    """
+    cache.clear()
+
+
 
 
 @pytest.mark.django_db

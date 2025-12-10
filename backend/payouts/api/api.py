@@ -4,6 +4,9 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAdminUser
 from payouts.pagination import PayoutCursorPagination
+from infrastructure.payouts.cache import (
+    get_paginated_payouts_response_with_cache,
+)
 
 
 from payouts.serializers import (
@@ -38,12 +41,14 @@ class PayoutListCreateAPIView(APIView):
 
     def get(self, request):
         qs = list_payouts()
-
         paginator = self.pagination_class()
-        page = paginator.paginate_queryset(qs, request)
-
-        serializer = PayoutSerializer(page, many=True)
-        return paginator.get_paginated_response(serializer.data)
+        
+        return get_paginated_payouts_response_with_cache(
+            request=request,
+            base_queryset=qs,
+            paginator=paginator,
+            serializer_class=PayoutSerializer,
+        )
 
     def post(self, request):
         serializer = PayoutCreateSerializer(data=request.data)
