@@ -1,23 +1,21 @@
+# backend/tests/payouts/test_use_cases_payouts.py
 from decimal import Decimal
 
 import pytest
 from django.contrib.auth import get_user_model
 
 from core.exceptions import DomainValidationError, DomainPermissionError
-from payouts.domain.services import (
-    build_money,
-    build_idempotency_key,
-    build_payout_status,
-    build_new_payout,
-    change_status,
-)
 from payouts.models import Recipient, Payout
+from payouts.application.use_cases import (
+    CreatePayoutUseCase,
+    ChangeStatusUseCase,
+)
 
 User = get_user_model()
 
 
 @pytest.mark.django_db
-class TestBuildNewPayoutService:
+class TestCreatePayoutUseCase:
     def _create_recipient(self, *, is_active: bool = True) -> Recipient:
         return Recipient.objects.create(
             type=Recipient.Type.INDIVIDUAL,
@@ -28,44 +26,58 @@ class TestBuildNewPayoutService:
             is_active=is_active,
         )
 
-    def test_build_new_payout_success(self):
+    def test_create_payout_success(self):
         recipient = self._create_recipient(is_active=True)
 
-        money = build_money(Decimal("100.50"), "usd")
-        key = build_idempotency_key("idem-service-1")
-
-        payout = build_new_payout(
-            recipient=recipient,
-            money=money,
-            key=key,
+        payout, is_duplicate = CreatePayoutUseCase.execute(
+            recipient_id=recipient.id,
+            amount=Decimal("100.50"),
+            currency="USD",
+            idempotency_key="idem-usecase-1",
         )
 
-        assert payout.pk is None  # ещё не сохранён (фабрика сущности)
+        assert is_duplicate is False
+        assert payout.id is not None
         assert payout.recipient == recipient
         assert payout.amount == Decimal("100.50")
         assert payout.currency == "USD"
         assert payout.status == Payout.Status.NEW
-        assert payout.idempotency_key == "idem-service-1"
-        assert payout.recipient_name_snapshot == recipient.name
-        assert payout.account_number_snapshot == recipient.account_number
-        assert payout.bank_code_snapshot == recipient.bank_code
 
-    def test_build_new_payout_inactive_recipient_raises(self):
+    def test_create_payout_recipient_inactive_raises(self):
         recipient = self._create_recipient(is_active=False)
 
-        money = build_money(Decimal("50.00"), "USD")
-        key = build_idempotency_key("idem-service-2")
-
         with pytest.raises(DomainValidationError):
-            build_new_payout(
-                recipient=recipient,
-                money=money,
-                key=key,
+            CreatePayoutUseCase.execute(
+                recipient_id=recipient.id,
+                amount=Decimal("50.00"),
+                currency="USD",
+                idempotency_key="idem-usecase-2",
             )
+
+    def test_create_payout_idempotent_returns_existing(self):
+        recipient = self._create_recipient(is_active=True)
+
+        first_payout, is_dup_1 = CreatePayoutUseCase.execute(
+            recipient_id=recipient.id,
+            amount=Decimal("10.00"),
+            currency="USD",
+            idempotency_key="idem-usecase-3",
+        )
+        second_payout, is_dup_2 = CreatePayoutUseCase.execute(
+            recipient_id=recipient.id,
+            amount=Decimal("999.99"),  # даже если сумма другая
+            currency="USD",
+            idempotency_key="idem-usecase-3",
+        )
+
+        assert is_dup_1 is False
+        assert is_dup_2 is True
+        assert first_payout.id == second_payout.id
+        assert Payout.objects.count() == 1
 
 
 @pytest.mark.django_db
-class TestChangeStatusService:
+class TestChangeStatusUseCase:
     def _create_recipient(self, *, is_active: bool = True) -> Recipient:
         return Recipient.objects.create(
             type=Recipient.Type.INDIVIDUAL,
@@ -80,13 +92,13 @@ class TestChangeStatusService:
         recipient = self._create_recipient(is_active=is_active_recipient)
         return Payout.objects.create(
             recipient=recipient,
-            amount=Decimal("10.00"),
+            amount=Decimal("50.00"),
             currency="USD",
             status=status,
             recipient_name_snapshot=recipient.name,
             account_number_snapshot=recipient.account_number,
             bank_code_snapshot=recipient.bank_code,
-            idempotency_key=f"idem-service-{status}",
+            idempotency_key=f"idem-status-{status}",
         )
 
     def _create_user(self, *, is_staff: bool) -> User:
@@ -96,29 +108,27 @@ class TestChangeStatusService:
             is_staff=is_staff,
         )
 
-    def test_change_status_success(self):
+    def test_change_status_success_as_staff(self):
         payout = self._create_payout(status=Payout.Status.NEW, is_active_recipient=True)
         admin = self._create_user(is_staff=True)
 
-        new_status_vo = build_payout_status(Payout.Status.PROCESSING)
-
-        updated = change_status(
+        updated = ChangeStatusUseCase.execute(
             payout=payout,
-            new_status=new_status_vo,
+            new_status=Payout.Status.PROCESSING,
             actor=admin,
         )
 
+        updated.refresh_from_db()
         assert updated.status == Payout.Status.PROCESSING
 
     def test_change_status_forbidden_for_non_staff(self):
         payout = self._create_payout(status=Payout.Status.NEW)
         user = self._create_user(is_staff=False)
-        new_status_vo = build_payout_status(Payout.Status.PROCESSING)
 
         with pytest.raises(DomainPermissionError):
-            change_status(
+            ChangeStatusUseCase.execute(
                 payout=payout,
-                new_status=new_status_vo,
+                new_status=Payout.Status.PROCESSING,
                 actor=user,
             )
 
@@ -126,32 +136,37 @@ class TestChangeStatusService:
         assert payout.status == Payout.Status.NEW
 
     def test_change_status_invalid_transition_raises(self):
+        """
+        COMPLETED → NEW должно ломаться по state-machine.
+        """
         payout = self._create_payout(status=Payout.Status.COMPLETED)
         admin = self._create_user(is_staff=True)
-        new_status_vo = build_payout_status(Payout.Status.NEW)
 
         with pytest.raises(DomainValidationError):
-            change_status(
+            ChangeStatusUseCase.execute(
                 payout=payout,
-                new_status=new_status_vo,
+                new_status=Payout.Status.NEW,
                 actor=admin,
             )
 
         payout.refresh_from_db()
         assert payout.status == Payout.Status.COMPLETED
 
-    def test_change_status_recipient_inactive_forward_blocked(self):
+    def test_change_status_recipient_inactive_block_forward(self):
+        """
+        Если получатель стал неактивным — нельзя двигать выплату в PROCESSING/COMPLETED.
+        (Это наше новое доменное правило)
+        """
         payout = self._create_payout(
             status=Payout.Status.NEW,
             is_active_recipient=False,
         )
         admin = self._create_user(is_staff=True)
-        new_status_vo = build_payout_status(Payout.Status.PROCESSING)
 
         with pytest.raises(DomainValidationError):
-            change_status(
+            ChangeStatusUseCase.execute(
                 payout=payout,
-                new_status=new_status_vo,
+                new_status=Payout.Status.PROCESSING,
                 actor=admin,
             )
 
