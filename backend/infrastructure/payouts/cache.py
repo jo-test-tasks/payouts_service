@@ -1,13 +1,30 @@
 # backend/infrastructure/payouts/cache.py
-
+import logging
 from urllib.parse import urlencode
 
 from django.core.cache import cache
 from rest_framework.response import Response
 
+logger = logging.getLogger(__name__)
 
 PAYOUTS_LIST_CACHE_VERSION_KEY = "payouts:list:version"
 PAYOUTS_LIST_PAGE_TTL = 60  # сек, можешь потом подкрутить
+
+def safe_cache_get(key, default=None):
+    try:
+        return cache.get(key, default)
+    except Exception:
+        logger.warning("Cache get failed for key=%s", key, exc_info=True)
+        return default
+
+
+def safe_cache_set(key, value, timeout=None):
+    try:
+        cache.set(key, value, timeout=timeout)
+    except Exception:
+        logger.warning("Cache set failed for key=%s", key, exc_info=True)
+
+
 
 
 def _get_payouts_list_cache_version() -> int:
@@ -16,10 +33,12 @@ def _get_payouts_list_cache_version() -> int:
     При изменении данных мы просто увеличиваем версию,
     и старые страницы автоматически становятся "протухшими".
     """
-    version = cache.get(PAYOUTS_LIST_CACHE_VERSION_KEY)
+    version = safe_cache_get(PAYOUTS_LIST_CACHE_VERSION_KEY)
     if version is None:
         version = 1
-        cache.set(PAYOUTS_LIST_CACHE_VERSION_KEY, version, None)
+
+        safe_cache_set(PAYOUTS_LIST_CACHE_VERSION_KEY, version, None)
+        
     return int(version)
 
 
@@ -29,9 +48,15 @@ def bump_payouts_list_cache_version() -> None:
     """
     try:
         cache.incr(PAYOUTS_LIST_CACHE_VERSION_KEY)
-    except ValueError:
+    except Exception:
         # ключа ещё нет — просто выставим 2 как следующее значение
-        cache.set(PAYOUTS_LIST_CACHE_VERSION_KEY, 2, None)
+        logger.warning(
+            "Cache incr failed for key=%s, resetting to 2",
+            PAYOUTS_LIST_CACHE_VERSION_KEY,
+            exc_info=True,
+        )
+        safe_cache_set(PAYOUTS_LIST_CACHE_VERSION_KEY, 2, None)
+        
 
 
 def _build_payouts_page_cache_key(request) -> str:
@@ -62,7 +87,7 @@ def get_paginated_payouts_response_with_cache(
     """
     cache_key = _build_payouts_page_cache_key(request)
 
-    cached_data = cache.get(cache_key)
+    cached_data = safe_cache_get(cache_key)
     if cached_data is not None:
         # cached_data — это dict/OrderedDict с полями cursor-пагинации
         return Response(cached_data)
@@ -73,6 +98,6 @@ def get_paginated_payouts_response_with_cache(
     response = paginator.get_paginated_response(serializer.data)
 
     # Сохраняем уже готовый payload (response.data) в кеш
-    cache.set(cache_key, response.data, timeout=PAYOUTS_LIST_PAGE_TTL)
+    safe_cache_set(cache_key, response.data, timeout=PAYOUTS_LIST_PAGE_TTL)
 
     return response

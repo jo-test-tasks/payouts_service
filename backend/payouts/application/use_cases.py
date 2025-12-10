@@ -1,3 +1,4 @@
+import logging
 from django.db import transaction, IntegrityError
 
 from payouts.domain.services import (
@@ -15,6 +16,7 @@ from payouts.repositories import (
 from payouts.events import PayoutCreated
 from core.event_bus import event_bus
 
+logger = logging.getLogger(__name__)
 
 # payouts/application/use_cases.py
 class CreatePayoutUseCase:
@@ -28,6 +30,11 @@ class CreatePayoutUseCase:
 
         existing = PayoutRepository.get_by_idempotency_key_or_none(key)
         if existing:
+            logger.info(
+                "Idempotent payout reuse: key=%s, payout_id=%s",
+                key.value,
+                existing.id,
+            )
             return existing, True
 
         # строим доменную сущность через фабрику
@@ -42,8 +49,22 @@ class CreatePayoutUseCase:
         except IntegrityError:
             # при гонке достаём по ключу
             payout = PayoutRepository.get_by_idempotency_key(key)
+            logger.warning(
+                "Idempotency race resolved: key=%s, payout_id=%s, recipient_id=%s",
+                key.value,
+                payout.id,
+                recipient.id,
+            )
             return payout, True
+        
 
+        logger.info(
+            "Payout created: id=%s, recipient_id=%s, amount=%s %s",
+            payout.id,
+            recipient.id,
+            money.amount,
+            money.currency,
+        )
         transaction.on_commit(
             lambda: event_bus.publish(PayoutCreated(payout_id=payout.id))
         )
@@ -56,6 +77,7 @@ class ChangeStatusUseCase:
     @staticmethod
     @transaction.atomic
     def execute(*, payout, new_status, actor):
+        old_status = payout.status
         # граница домена: здесь мы превращаем примитив в VO
         status_vo = build_payout_status(new_status)
 
@@ -66,4 +88,12 @@ class ChangeStatusUseCase:
         )
 
         updated = PayoutRepository.save(payout)
+
+        logger.info(
+            "Payout status changed: id=%s, %s -> %s, actor=%s",
+            updated.id,
+            old_status,
+            updated.status,
+            getattr(actor, "id", None) if actor else "system",
+        )
         return updated

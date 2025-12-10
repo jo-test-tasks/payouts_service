@@ -8,6 +8,7 @@ base.py
 
 from pathlib import Path
 import os
+import logging
 
 # ==============================
 # БАЗОВЫЕ ПУТИ ПРОЕКТА
@@ -223,3 +224,43 @@ CACHES = {
     }
 }
 
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
+
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "[{levelname}] {asctime} {name}: {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
+        },
+    },
+    "loggers": {
+        "django": {
+            "handlers": ["console"],
+            "level": os.getenv("DJANGO_LOG_LEVEL", LOG_LEVEL),
+            "propagate": False,
+        },
+        "payouts": {
+            "handlers": ["console"],
+            "level": LOG_LEVEL,
+            "propagate": False,
+        },
+        "infrastructure.payouts": {
+            "handlers": ["console"],
+            "level": LOG_LEVEL,
+            "propagate": False,
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": LOG_LEVEL,
+    },
+}
