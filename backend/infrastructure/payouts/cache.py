@@ -10,6 +10,7 @@ logger = logging.getLogger(__name__)
 PAYOUTS_LIST_CACHE_VERSION_KEY = "payouts:list:version"
 PAYOUTS_LIST_PAGE_TTL = 60  # сек, можешь потом подкрутить
 
+
 def safe_cache_get(key, default=None):
     try:
         return cache.get(key, default)
@@ -25,8 +26,6 @@ def safe_cache_set(key, value, timeout=None):
         logger.warning("Cache set failed for key=%s", key, exc_info=True)
 
 
-
-
 def _get_payouts_list_cache_version() -> int:
     """
     Глобальная версия кеша списка выплат.
@@ -38,7 +37,7 @@ def _get_payouts_list_cache_version() -> int:
         version = 1
 
         safe_cache_set(PAYOUTS_LIST_CACHE_VERSION_KEY, version, None)
-        
+
     return int(version)
 
 
@@ -56,7 +55,6 @@ def bump_payouts_list_cache_version() -> None:
             exc_info=True,
         )
         safe_cache_set(PAYOUTS_LIST_CACHE_VERSION_KEY, 2, None)
-        
 
 
 def _build_payouts_page_cache_key(request) -> str:

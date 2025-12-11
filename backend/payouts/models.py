@@ -57,7 +57,9 @@ class Recipient(models.Model):
         ordering = ("name", "id")
 
     def __str__(self) -> str:
-        return f"Recipient(id={self.pk}, name={self.name}, account={self.account_number})"
+        return (
+            f"Recipient(id={self.pk}, name={self.name}, account={self.account_number})"
+        )
 
 
 class Payout(models.Model):
@@ -77,8 +79,8 @@ class Payout(models.Model):
     # --- Бизнес-параметры выплаты ---
 
     idempotency_key = models.CharField(  # NEW
-        max_length=64,                   # NEW
-        unique=True,                     # NEW  (уникальный индекс для идемпотентности)
+        max_length=64,  # NEW
+        unique=True,  # NEW  (уникальный индекс для идемпотентности)
         help_text="Ключ для идемпотентного создания выплаты.",  # NEW
     )
 
@@ -136,8 +138,12 @@ class Payout(models.Model):
         verbose_name_plural = "Заявки на выплату"
         ordering = ("-created_at",)
         indexes = [  # NEW
-            models.Index(fields=("status", "created_at")),    # NEW: частый запрос "по статусу за период"
-            models.Index(fields=("recipient", "created_at")), # NEW: история выплат по получателю
+            models.Index(
+                fields=("status", "created_at")
+            ),  # NEW: частый запрос "по статусу за период"
+            models.Index(
+                fields=("recipient", "created_at")
+            ),  # NEW: история выплат по получателю
         ]  # NEW
 
     def __str__(self) -> str:

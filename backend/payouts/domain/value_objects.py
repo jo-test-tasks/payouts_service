@@ -4,7 +4,6 @@ from decimal import Decimal
 from core.exceptions import DomainValidationError
 from payouts.models import Payout
 
-
 SUPPORTED_CURRENCIES = {"USD", "EUR", "UAH"}
 
 

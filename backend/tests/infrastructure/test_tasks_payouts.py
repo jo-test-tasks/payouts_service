@@ -3,8 +3,8 @@ from decimal import Decimal
 
 import pytest
 
-from payouts.models import Recipient, Payout
 from infrastructure.payouts.tasks import process_payout_task
+from payouts.models import Payout, Recipient
 
 
 @pytest.mark.django_db

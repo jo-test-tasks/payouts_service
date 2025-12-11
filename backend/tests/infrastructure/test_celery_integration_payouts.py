@@ -30,8 +30,11 @@ def test_create_payout_triggers_celery_tasks_via_event_bus():
     }
 
     # Патчим именно там, где handle_payout_created дергает .delay(...)
-    with patch("infrastructure.payouts.event_handlers.process_payout_task.delay") as mock_process_delay, \
-         patch("infrastructure.payouts.event_handlers.rebuild_payouts_cache_task.delay") as mock_rebuild_delay:
+    with patch(
+        "infrastructure.payouts.event_handlers.process_payout_task.delay"
+    ) as mock_process_delay, patch(
+        "infrastructure.payouts.event_handlers.rebuild_payouts_cache_task.delay"
+    ) as mock_rebuild_delay:
         response = client.post(API_LIST_URL, data=payload, format="json")
 
     assert response.status_code == 201

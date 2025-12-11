@@ -6,7 +6,7 @@ from django.db import connection
 from django.test.utils import CaptureQueriesContext
 from rest_framework.test import APIClient
 
-from payouts.models import Recipient, Payout
+from payouts.models import Payout, Recipient
 
 API_LIST_URL = "/api/payouts/"
 

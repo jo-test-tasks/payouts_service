@@ -5,11 +5,11 @@ from celery import shared_task
 from django.db import transaction
 
 from core.exceptions import DomainNotFoundError
-from payouts.models import Payout
 from payouts.application.use_cases import ChangeStatusUseCase
+from payouts.models import Payout
 from payouts.repositories import PayoutRepository
-from .cache import bump_payouts_list_cache_version
 
+from .cache import bump_payouts_list_cache_version
 
 logger = logging.getLogger(__name__)
 

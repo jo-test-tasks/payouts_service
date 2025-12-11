@@ -1,4 +1,4 @@
-from .base import * # noqa: F403
+from .base import *  # noqa: F403
 
 DEBUG = False
 
@@ -20,7 +20,7 @@ CACHES = {
     }
 }
 
-REST_FRAMEWORK["DEFAULT_THROTTLE_CLASSES"] = [] # noqa: F405
+REST_FRAMEWORK["DEFAULT_THROTTLE_CLASSES"] = []  # noqa: F405
 
 LOGGING = {
     "version": 1,

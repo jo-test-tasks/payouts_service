@@ -1,8 +1,8 @@
 # payouts/domain/validators.py
 
-from core.exceptions import DomainValidationError, DomainPermissionError
-from payouts.models import Recipient, Payout
+from core.exceptions import DomainPermissionError, DomainValidationError
 from payouts.domain.value_objects import PayoutStatus
+from payouts.models import Payout, Recipient
 
 
 def validate_recipient_active(

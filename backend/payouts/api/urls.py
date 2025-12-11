@@ -1,9 +1,6 @@
 from django.urls import path
 
-from .api import (
-    PayoutListCreateAPIView,
-    PayoutDetailAPIView,
-)
+from .api import PayoutDetailAPIView, PayoutListCreateAPIView
 
 urlpatterns = [
     # GET  /api/payouts/      — список выплат
@@ -12,6 +9,5 @@ urlpatterns = [
     # GET    /api/payouts/<id>/ — получить выплату
     # PATCH  /api/payouts/<id>/ — изменить статус
     # DELETE /api/payouts/<id>/ — удалить выплату
-    path("<int:pk>/", PayoutDetailAPIView.as_view(), name="payouts-detail")
+    path("<int:pk>/", PayoutDetailAPIView.as_view(), name="payouts-detail"),
 ]
-

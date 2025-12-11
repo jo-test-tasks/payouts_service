@@ -3,7 +3,7 @@ from decimal import Decimal
 import pytest
 
 from core.exceptions import DomainValidationError
-from payouts.domain.value_objects import Money, IdempotencyKey, PayoutStatus
+from payouts.domain.value_objects import IdempotencyKey, Money, PayoutStatus
 from payouts.models import Payout
 
 

@@ -6,8 +6,8 @@ base.py
 и могут переопределять часть из них.
 """
 
-from pathlib import Path
 import os
+from pathlib import Path
 
 # ==============================
 # БАЗОВЫЕ ПУТИ ПРОЕКТА
@@ -183,19 +183,17 @@ REST_FRAMEWORK = {
         "rest_framework.parsers.JSONParser",
     ],
     "EXCEPTION_HANDLER": "config.interfaces.http.exceptions.custom_exception_handler",
-
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework.authentication.SessionAuthentication",
     ],
-    
     # ========= Throttling =========
     "DEFAULT_THROTTLE_CLASSES": [
-        "rest_framework.throttling.AnonRateThrottle",   # для неавторизованных
-        "rest_framework.throttling.UserRateThrottle",   # для авторизованных
+        "rest_framework.throttling.AnonRateThrottle",  # для неавторизованных
+        "rest_framework.throttling.UserRateThrottle",  # для авторизованных
     ],
     "DEFAULT_THROTTLE_RATES": {
-        "anon": "100/day",    # аноним может сделать до 100 запросов в день
-        "user": "1000/day",   # пользователь — до 1000 запросов в день
+        "anon": "100/day",  # аноним может сделать до 100 запросов в день
+        "user": "1000/day",  # пользователь — до 1000 запросов в день
     },
 }
 

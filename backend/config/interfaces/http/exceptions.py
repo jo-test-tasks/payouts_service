@@ -1,12 +1,12 @@
 # config/api/exceptions.py
-from rest_framework.views import exception_handler
-from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.response import Response
+from rest_framework.views import exception_handler
 
 from core.exceptions import (
-    DomainValidationError,
     DomainNotFoundError,
     DomainPermissionError,
+    DomainValidationError,
 )
 
 
@@ -36,7 +36,6 @@ def custom_exception_handler(exc, context):
             {"detail": str(exc)},
             status=status.HTTP_403_FORBIDDEN,
         )
-   
 
     # Всё остальное — 500
     return Response(

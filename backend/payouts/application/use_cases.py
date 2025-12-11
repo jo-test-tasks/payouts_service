@@ -1,22 +1,20 @@
 import logging
-from django.db import transaction, IntegrityError
 
+from django.db import IntegrityError, transaction
+
+from core.event_bus import event_bus
 from payouts.domain.services import (
-    build_money,
     build_idempotency_key,
+    build_money,
+    build_new_payout,
     build_payout_status,
     change_status,
-    build_new_payout,
-)
-
-from payouts.repositories import (
-    PayoutRepository,
-    RecipientRepository,
 )
 from payouts.events import PayoutCreated
-from core.event_bus import event_bus
+from payouts.repositories import PayoutRepository, RecipientRepository
 
 logger = logging.getLogger(__name__)
+
 
 # payouts/application/use_cases.py
 class CreatePayoutUseCase:
@@ -56,7 +54,6 @@ class CreatePayoutUseCase:
                 recipient.id,
             )
             return payout, True
-        
 
         logger.info(
             "Payout created: id=%s, recipient_id=%s, amount=%s %s",
@@ -70,7 +67,6 @@ class CreatePayoutUseCase:
         )
 
         return payout, False
-
 
 
 class ChangeStatusUseCase:

@@ -1,6 +1,6 @@
 # core/event_bus.py
 from collections import defaultdict
-from typing import Callable, Type, Dict, List, Any
+from typing import Any, Callable, Dict, List, Type
 
 
 class EventBus:

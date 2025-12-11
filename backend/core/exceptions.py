@@ -1,5 +1,6 @@
 # core/exceptions.py
 
+
 class DomainError(Exception):
     """Базовая ошибка домена."""
 
@@ -14,5 +15,3 @@ class DomainNotFoundError(DomainError):
 
 class DomainPermissionError(DomainError):
     """Нет прав на операцию (403)."""
-
-

@@ -4,12 +4,9 @@ from decimal import Decimal
 import pytest
 from django.contrib.auth import get_user_model
 
-from core.exceptions import DomainValidationError, DomainPermissionError
-from payouts.models import Recipient, Payout
-from payouts.application.use_cases import (
-    CreatePayoutUseCase,
-    ChangeStatusUseCase,
-)
+from core.exceptions import DomainPermissionError, DomainValidationError
+from payouts.application.use_cases import ChangeStatusUseCase, CreatePayoutUseCase
+from payouts.models import Payout, Recipient
 
 User = get_user_model()
 
@@ -88,7 +85,9 @@ class TestChangeStatusUseCase:
             is_active=is_active,
         )
 
-    def _create_payout(self, *, status: str = Payout.Status.NEW, is_active_recipient=True) -> Payout:
+    def _create_payout(
+        self, *, status: str = Payout.Status.NEW, is_active_recipient=True
+    ) -> Payout:
         recipient = self._create_recipient(is_active=is_active_recipient)
         return Payout.objects.create(
             recipient=recipient,

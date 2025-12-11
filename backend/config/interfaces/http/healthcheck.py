@@ -1,11 +1,10 @@
 # config/interfaces/http/healthcheck.py
 import logging
 
-from django.http import JsonResponse
-from django.db import connection
-from django.conf import settings
-
 import redis
+from django.conf import settings
+from django.db import connection
+from django.http import JsonResponse
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +24,9 @@ def healthcheck(request):
 
     # Redis check
     try:
-        r = redis.Redis.from_url(getattr(settings, "CELERY_BROKER_URL", "redis://redis:6379/0"))
+        r = redis.Redis.from_url(
+            getattr(settings, "CELERY_BROKER_URL", "redis://redis:6379/0")
+        )
         r.ping()
         redis_ok = True
     except Exception:

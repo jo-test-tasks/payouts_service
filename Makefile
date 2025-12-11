@@ -1,8 +1,12 @@
 .PHONY: help \
-        build up down logs web-shell migrate createsuperuser runserver worker-logs worker \
+        build up down logs web-shell migrate createsuperuser runserver worker worker-logs \
         build-prod up-prod down-prod logs-prod \
         test test-all test-file test-key test-cov \
         lint format clean cache-clear
+
+#################################
+# HELP
+#################################
 
 help:
 	@echo ""
@@ -11,13 +15,13 @@ help:
 	@echo "  DEV:"
 	@echo "    make build             - собрать dev Docker-образы"
 	@echo "    make up                - поднять dev окружение"
-	@echo "    make down              - остановить dev окружение"
+	@echo "    make down              - остановить окружение"
 	@echo "    make logs              - логи dev окружения"
-	@echo "    make web-shell         - зайти в контейнер web (bash)"
+	@echo "    make web-shell         - bash в web-контейнере"
 	@echo "    make migrate           - применить миграции"
 	@echo "    make createsuperuser   - создать суперпользователя"
-	@echo "    make runserver         - запустить Django runserver внутри контейнера"
-	@echo "    make worker            - запустить celery worker командой внутри контейнера"
+	@echo "    make runserver         - runserver внутри контейнера"
+	@echo "    make worker            - запустить Celery worker"
 	@echo "    make worker-logs       - логи Celery worker"
 	@echo ""
 	@echo "  PROD:"
@@ -26,20 +30,20 @@ help:
 	@echo "    make down-prod         - остановить prod окружение"
 	@echo "    make logs-prod         - логи prod окружения"
 	@echo ""
-	@echo "  ТЕСТЫ:"
-	@echo "    make test              - быстрый pytest"
-	@echo "    make test-all          - pytest с подробным выводом"
-	@echo "    make test-file path=... - прогон тестов одного файла"
-	@echo "    make test-key  key=...  - тесты по ключевому слову (-k)"
-	@echo "    make test-cov          - pytest с coverage отчётом"
+	@echo "  TESTS:"
+	@echo "    make test              - pytest (тихий режим)"
+	@echo "    make test-all          - pytest (подробно)"
+	@echo "    make test-file path=... - тест одного файла"
+	@echo "    make test-key  key=...  - тесты по ключу (-k)"
+	@echo "    make test-cov          - тесты с coverage"
 	@echo ""
-	@echo "  ЛИНТ / ФОРМАТ:"
+	@echo "  LINT / FORMAT:"
 	@echo "    make lint              - ruff + isort + black (проверка)"
-	@echo "    make format            - автоформатирование ruff + isort + black"
+	@echo "    make format            - автоформатирование"
 	@echo ""
-	@echo "  ПОЛЕЗНОЕ:"
-	@echo "    make clean             - очистить *.pyc и __pycache__"
-	@echo "    make cache-clear       - очистить Django cache + pytest/mypy/ruff cache"
+	@echo "  UTILS:"
+	@echo "    make clean             - удалить *.pyc и __pycache__"
+	@echo "    make cache-clear       - очистить кеш Django + pytest/ruff"
 	@echo ""
 
 
@@ -141,6 +145,4 @@ clean:
 
 cache-clear:
 	docker compose exec web python manage.py clear_cache || true
-	rm -rf backend/.pytest_cache || true
-	rm -rf .mypy_cache || true
-	rm -rf .ruff_cache || true
+	rm -rf backend/.pytest_cache .mypy_cache .ruff_cache || true

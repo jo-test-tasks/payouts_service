@@ -2,10 +2,7 @@
 from core.event_bus import event_bus
 from payouts.events import PayoutCreated
 
-from .tasks import (
-    rebuild_payouts_cache_task,
-    process_payout_task,
-)
+from .tasks import process_payout_task, rebuild_payouts_cache_task
 
 
 def handle_payout_created(event: PayoutCreated) -> None:

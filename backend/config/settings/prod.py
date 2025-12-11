@@ -8,10 +8,15 @@ prod.py
 - настройки безопасности, логирования, кэшей и т.д.
 """
 
-from .base import *  # noqa: F403
 import os
+
+from .base import *  # noqa: F403
 
 DEBUG = False
 
 # В проде не оставляем пустым.
-ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "").split(",") if os.getenv("DJANGO_ALLOWED_HOSTS") else []
+ALLOWED_HOSTS = (
+    os.getenv("DJANGO_ALLOWED_HOSTS", "").split(",")
+    if os.getenv("DJANGO_ALLOWED_HOSTS")
+    else []
+)
