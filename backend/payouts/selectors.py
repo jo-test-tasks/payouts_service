@@ -1,8 +1,7 @@
 # payouts/selectors.py
-from typing import Iterable
 
 from .models import Payout
-from .repositories import PayoutRepository
+
 
 
 def list_payouts():

@@ -16,5 +16,3 @@ class DomainPermissionError(DomainError):
     """Нет прав на операцию (403)."""
 
 
-class DomainConflictError(DomainError):
-    """Конфликт состояния / бизнес-правил (409)."""

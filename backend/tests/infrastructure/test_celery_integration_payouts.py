@@ -1,5 +1,4 @@
 # backend/tests/payouts/test_celery_integration_payouts.py
-from decimal import Decimal
 from unittest.mock import patch
 
 import pytest

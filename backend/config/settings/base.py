@@ -8,7 +8,6 @@ base.py
 
 from pathlib import Path
 import os
-import logging
 
 # ==============================
 # БАЗОВЫЕ ПУТИ ПРОЕКТА

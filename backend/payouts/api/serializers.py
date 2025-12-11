@@ -1,7 +1,7 @@
 # payouts/api/serializers.py
 from rest_framework import serializers
 
-from payouts.models import Recipient, Payout
+from payouts.models import Payout
 
 
 class PayoutSerializer(serializers.ModelSerializer):

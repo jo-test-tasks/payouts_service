@@ -7,7 +7,6 @@ from core.exceptions import (
     DomainValidationError,
     DomainNotFoundError,
     DomainPermissionError,
-    DomainConflictError,
 )
 
 
@@ -37,13 +36,7 @@ def custom_exception_handler(exc, context):
             {"detail": str(exc)},
             status=status.HTTP_403_FORBIDDEN,
         )
-
-    # Конфликт → 409
-    if isinstance(exc, DomainConflictError):
-        return Response(
-            {"detail": str(exc)},
-            status=status.HTTP_409_CONFLICT,
-        )
+   
 
     # Всё остальное — 500
     return Response(

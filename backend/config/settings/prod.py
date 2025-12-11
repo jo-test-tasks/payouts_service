@@ -8,7 +8,8 @@ prod.py
 - настройки безопасности, логирования, кэшей и т.д.
 """
 
-from .base import *  # noqa
+from .base import *  # noqa: F403
+import os
 
 DEBUG = False
 
