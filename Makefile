@@ -1,7 +1,9 @@
+.DEFAULT_GOAL := help
+
 .PHONY: help \
         build up down logs web-shell migrate createsuperuser runserver worker worker-logs \
         build-prod up-prod down-prod logs-prod \
-        test test-all test-file test-key test-cov \
+        test test-all test-file test-key test-cov test-cov-html \
         lint format clean cache-clear
 
 #################################
@@ -21,7 +23,7 @@ help:
 	@echo "    make migrate           - применить миграции"
 	@echo "    make createsuperuser   - создать суперпользователя"
 	@echo "    make runserver         - runserver внутри контейнера"
-	@echo "    make worker            - запустить Celery worker"
+	@echo "    make worker            - запустить Celery worker (дополнительно)"
 	@echo "    make worker-logs       - логи Celery worker"
 	@echo ""
 	@echo "  PROD:"
@@ -35,7 +37,8 @@ help:
 	@echo "    make test-all          - pytest (подробно)"
 	@echo "    make test-file path=... - тест одного файла"
 	@echo "    make test-key  key=...  - тесты по ключу (-k)"
-	@echo "    make test-cov          - тесты с coverage"
+	@echo "    make test-cov          - тесты с coverage (консоль)"
+	@echo "    make test-cov-html     - тесты + HTML-отчёт coverage"
 	@echo ""
 	@echo "  LINT / FORMAT:"
 	@echo "    make lint              - ruff + isort + black (проверка)"
@@ -43,9 +46,8 @@ help:
 	@echo ""
 	@echo "  UTILS:"
 	@echo "    make clean             - удалить *.pyc и __pycache__"
-	@echo "    make cache-clear       - очистить кеш Django + pytest/ruff"
+	@echo "    make cache-clear       - очистить кеш Django + pytest/ruff/coverage"
 	@echo ""
-
 
 #################################
 # DEV
@@ -81,7 +83,6 @@ worker:
 worker-logs:
 	docker compose logs -f worker
 
-
 #################################
 # PROD
 #################################
@@ -97,7 +98,6 @@ down-prod:
 
 logs-prod:
 	docker compose -f docker-compose.prod.yml logs -f
-
 
 #################################
 # TESTS
@@ -119,6 +119,10 @@ test-cov:
 	docker compose exec web coverage run -m pytest
 	docker compose exec web coverage report -m
 
+test-cov-html:
+	docker compose exec web coverage run -m pytest
+	docker compose exec web coverage html
+	@echo "Откройте htmlcov/index.html для просмотра отчёта"
 
 #################################
 # LINT / FORMAT
@@ -134,7 +138,6 @@ format:
 	docker compose exec web isort .
 	docker compose exec web black .
 
-
 #################################
 # UTILS
 #################################
@@ -145,4 +148,4 @@ clean:
 
 cache-clear:
 	docker compose exec web python manage.py clear_cache || true
-	rm -rf backend/.pytest_cache .mypy_cache .ruff_cache || true
+	rm -rf backend/.pytest_cache .mypy_cache .ruff_cache .coverage htmlcov || true

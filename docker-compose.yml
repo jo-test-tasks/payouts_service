@@ -3,10 +3,8 @@ services:
   db:
     image: postgres:15-alpine
     container_name: payouts_db
-    environment:
-      POSTGRES_DB: payouts_dev
-      POSTGRES_USER: payouts_user
-      POSTGRES_PASSWORD: payouts_password
+    env_file:
+      - .env.dev        # <- добавили
     ports:
       - "5432:5432"
     volumes:

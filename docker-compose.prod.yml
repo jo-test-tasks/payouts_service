@@ -1,43 +1,57 @@
-# docker-compose.prod.yml (PROD)
+version: "3.9"
+
 services:
   db:
     image: postgres:15-alpine
-    container_name: payouts_db_prod
+    container_name: payouts_db
+    env_file:
+      - .env.prod              # 👈 продовый env
     environment:
-      POSTGRES_DB: payouts_prod
-      POSTGRES_USER: payouts_user
-      POSTGRES_PASSWORD: payouts_password
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
-      - postgres_data_prod:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
+    # В проде порт наружу можно и не пробрасывать, если БД только для сервиса
+    # ports:
+    #   - "5432:5432"
     restart: always
 
   redis:
     image: redis:7-alpine
-    container_name: payouts_redis_prod
+    container_name: payouts_redis
+    # Redis обычно тоже не светят наружу
+    # ports:
+    #   - "6379:6379"
     volumes:
-      - redis_data_prod:/data
+      - redis_data:/data
     restart: always
 
   web:
     build:
       context: .
-      dockerfile: Dockerfile       # ← PROD Dockerfile
-    container_name: payouts_web_prod
+      dockerfile: Dockerfile     # 👈 продовый Dockerfile
+    container_name: payouts_web
+    command: >
+      gunicorn config.wsgi:application
+      --bind 0.0.0.0:8000
+      --workers 4
     env_file:
       - .env.prod
     depends_on:
       - db
       - redis
     ports:
-      - "8000:8000"                # на реальном сервере можно "80:8000"
+      - "8000:8000"              # 👈 сюда будет ходить внешний мир / nginx
     restart: always
 
   worker:
     build:
       context: .
-      dockerfile: Dockerfile       # ← тот же prod-образ
-    container_name: payouts_worker_prod
-    command: ["bash", "-c", "celery -A config worker -l info"]
+      dockerfile: Dockerfile     # 👈 тот же образ, что и web
+    container_name: payouts_worker
+    command: >
+      celery -A config worker -l info
     env_file:
       - .env.prod
     depends_on:
@@ -47,5 +61,5 @@ services:
     restart: always
 
 volumes:
-  postgres_data_prod:
-  redis_data_prod:
+  postgres_data:
+  redis_data:
