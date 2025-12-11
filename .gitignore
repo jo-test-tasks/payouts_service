@@ -39,6 +39,7 @@ staticfiles/
 .env
 .env.*
 !.env.example
+!.env.prod.example
 
 # ===========================
 # Docker

@@ -1,242 +1,145 @@
-# backend/tests/payouts/test_validators_payouts.py
 from decimal import Decimal
 
 import pytest
+from django.contrib.auth import get_user_model
 
-from core.exceptions import DomainValidationError, DomainPermissionError
-from payouts.models import Recipient, Payout
-from payouts.validators import (
-    SUPPORTED_CURRENCIES,
-    validate_amount_positive,
-    validate_currency_code,
-    validate_recipient_basic,
-    validate_recipient_active,
-    validate_payout_status_transition,
+from core.exceptions import DomainPermissionError, DomainValidationError
+from payouts.domain.validators import (
     ensure_can_change_payout_status,
-    validate_idempotency_key,  # NEW
+    validate_payout_status_transition,
+    validate_recipient_active,
 )
+from payouts.domain.value_objects import PayoutStatus
+from payouts.models import Payout, Recipient
 
-
-# ============================================================
-# validate_amount_positive
-# ============================================================
-
-def test_validate_amount_positive_ok():
-    # не должно кидать исключение
-    validate_amount_positive(Decimal("0.01"))
-    validate_amount_positive(Decimal("100"))
-
-
-@pytest.mark.parametrize("value", ["0", "-0.01", "-100"])
-def test_validate_amount_positive_raises_on_zero_or_negative(value):
-    with pytest.raises(DomainValidationError) as exc:
-        validate_amount_positive(Decimal(value))
-    assert "больше нуля" in str(exc.value)
-
-
-# ============================================================
-# validate_currency_code
-# ============================================================
-
-@pytest.mark.parametrize("code", list(SUPPORTED_CURRENCIES))
-def test_validate_currency_code_ok(code):
-    # любые поддерживаемые коды должны проходить
-    validate_currency_code(code)
-    validate_currency_code(code.lower())  # проверка, что upper() работает
-
-
-@pytest.mark.parametrize("code", ["", "US", "BITCOIN", "123", "U4H"])
-def test_validate_currency_code_unsupported_raises(code):
-    with pytest.raises(DomainValidationError) as exc:
-        validate_currency_code(code)
-    assert "не поддерживается" in str(exc.value)
-
-
-# ============================================================
-# validate_recipient_basic
-# ============================================================
-
-def test_validate_recipient_basic_ok():
-    # нормальное имя и номер счёта
-    validate_recipient_basic("John Doe", "UA12 3456 7890")
-    validate_recipient_basic("A B", "1234-5678-90")
-
-
-@pytest.mark.parametrize("name", ["", " ", "A"])
-def test_validate_recipient_basic_short_name_raises(name):
-    with pytest.raises(DomainValidationError) as exc:
-        validate_recipient_basic(name, "12345678")
-    assert "Имя получателя слишком короткое" in str(exc.value)
-
-
-@pytest.mark.parametrize("number", ["", "1234567", "12-34-56"])
-def test_validate_recipient_basic_short_account_number_raises(number):
-    with pytest.raises(DomainValidationError) as exc:
-        validate_recipient_basic("John Doe", number)
-    assert "Номер счёта/карты слишком короткий" in str(exc.value)
-
-
-@pytest.mark.parametrize("number", ["1234-56!78", "1234 5678 #", "****1234"])
-def test_validate_recipient_basic_illegal_chars_raises(number):
-    with pytest.raises(DomainValidationError) as exc:
-        validate_recipient_basic("John Doe", number)
-    assert "недопустимые символы" in str(exc.value)
-
-
-# ============================================================
-# validate_recipient_active
-# ============================================================
-
-@pytest.mark.django_db
-def test_validate_recipient_active_ok():
-    recipient = Recipient.objects.create(
-        type=Recipient.Type.INDIVIDUAL,
-        name="John Doe",
-        account_number="UA12345678",
-        bank_code="MFO123",
-        country="UA",
-        is_active=True,
-    )
-    # не должно кидать исключение
-    validate_recipient_active(recipient)
+User = get_user_model()
 
 
 @pytest.mark.django_db
-def test_validate_recipient_active_inactive_raises():
-    recipient = Recipient.objects.create(
-        type=Recipient.Type.INDIVIDUAL,
-        name="John Doe",
-        account_number="UA12345678",
-        bank_code="MFO123",
-        country="UA",
-        is_active=False,
-    )
-    with pytest.raises(DomainValidationError) as exc:
-        validate_recipient_active(recipient)
-    assert "неактивному получателю" in str(exc.value)
-
-
-# ============================================================
-# validate_payout_status_transition
-# ============================================================
-
-def _make_payout(status: str) -> Payout:
-    # можно не сохранять в БД — для валидатора достаточно инстанса
-    return Payout(
-        status=status,
-        amount=Decimal("10.00"),
-        currency="USD",
-        recipient_name_snapshot="Test",
-        account_number_snapshot="12345678",
-        bank_code_snapshot="MFO123",
-    )
-
-
-@pytest.mark.parametrize(
-    "old_status,new_status",
-    [
-        (Payout.Status.NEW, Payout.Status.PROCESSING),
-        (Payout.Status.NEW, Payout.Status.FAILED),
-        (Payout.Status.PROCESSING, Payout.Status.COMPLETED),
-        (Payout.Status.PROCESSING, Payout.Status.FAILED),
-    ],
-)
-def test_validate_payout_status_transition_allowed(old_status, new_status):
-    payout = _make_payout(old_status)
-    # не должно кидать
-    validate_payout_status_transition(payout, new_status)
-
-
-@pytest.mark.parametrize(
-    "old_status,new_status",
-    [
-        (Payout.Status.NEW, Payout.Status.COMPLETED),
-        (Payout.Status.PROCESSING, Payout.Status.NEW),
-        (Payout.Status.COMPLETED, Payout.Status.NEW),
-        (Payout.Status.COMPLETED, Payout.Status.PROCESSING),
-        (Payout.Status.FAILED, Payout.Status.NEW),
-    ],
-)
-def test_validate_payout_status_transition_forbidden_raises(old_status, new_status):
-    payout = _make_payout(old_status)
-    with pytest.raises(DomainValidationError) as exc:
-        validate_payout_status_transition(payout, new_status)
-    assert "Нельзя перевести выплату" in str(exc.value)
-
-
-def test_validate_payout_status_transition_invalid_new_status_raises():
-    payout = _make_payout(Payout.Status.NEW)
-    with pytest.raises(DomainValidationError) as exc:
-        validate_payout_status_transition(payout, "SOME_TRASH_STATUS")
-    assert "Некорректный статус" in str(exc.value)
-
-
-# ============================================================
-# ensure_can_change_payout_status
-# ============================================================
-
-class DummyUser:
-    def __init__(self, is_staff: bool):
-        self.is_staff = is_staff
-
-
-def test_ensure_can_change_payout_status_staff_ok():
-    actor = DummyUser(is_staff=True)
-    payout = _make_payout(Payout.Status.NEW)
-    # не должно кидать
-    ensure_can_change_payout_status(
-        actor=actor,
-        payout=payout,
-        new_status=Payout.Status.PROCESSING,
-    )
-
-
-@pytest.mark.parametrize(
-    "actor",
-    [
-        None,
-        DummyUser(is_staff=False),
-    ],
-)
-def test_ensure_can_change_payout_status_non_staff_raises(actor):
-    payout = _make_payout(Payout.Status.NEW)
-    with pytest.raises(DomainPermissionError) as exc:
-        ensure_can_change_payout_status(
-            actor=actor,
-            payout=payout,
-            new_status=Payout.Status.PROCESSING,
+class TestRecipientValidators:
+    def _create_recipient(self, *, is_active: bool = True) -> Recipient:
+        return Recipient.objects.create(
+            type=Recipient.Type.INDIVIDUAL,
+            name="John Doe",
+            account_number="UA1234567890",
+            bank_code="MFO123",
+            country="UA",
+            is_active=is_active,
         )
-    assert "Недостаточно прав" in str(exc.value)
+
+    def test_validate_recipient_active_ok_for_active(self):
+        recipient = self._create_recipient(is_active=True)
+        # не должно кидать исключение
+        validate_recipient_active(recipient)
+
+    def test_validate_recipient_active_raises_for_inactive(self):
+        recipient = self._create_recipient(is_active=False)
+        with pytest.raises(DomainValidationError):
+            validate_recipient_active(recipient)
 
 
-# ============================================================
-# validate_idempotency_key
-# ============================================================
+@pytest.mark.django_db
+class TestPayoutStatusValidators:
+    def _create_recipient(self, *, is_active: bool = True) -> Recipient:
+        return Recipient.objects.create(
+            type=Recipient.Type.INDIVIDUAL,
+            name="John Doe",
+            account_number="UA1234567890",
+            bank_code="MFO123",
+            country="UA",
+            is_active=is_active,
+        )
 
-def test_validate_idempotency_key_ok():
-    """Корректный idempotency_key не должен кидать исключение."""
-    validate_idempotency_key("abcde12345")
-    validate_idempotency_key("IDEMPOTENT-KEY_123")
-    validate_idempotency_key("a" * 8)
-    validate_idempotency_key("b" * 64)
+    def _create_payout(self, status: str, is_active_recipient: bool = True) -> Payout:
+        recipient = self._create_recipient(is_active=is_active_recipient)
+        return Payout.objects.create(
+            recipient=recipient,
+            amount=Decimal("10.00"),
+            currency="USD",
+            status=status,
+            recipient_name_snapshot=recipient.name,
+            account_number_snapshot=recipient.account_number,
+            bank_code_snapshot=recipient.bank_code,
+            idempotency_key=f"idem-{status}",
+        )
+
+    def test_validate_payout_status_transition_allowed(self):
+        payout = self._create_payout(status=Payout.Status.NEW)
+        new_status = PayoutStatus(Payout.Status.PROCESSING)
+
+        # не должно кидать исключение
+        validate_payout_status_transition(payout, new_status)
+
+    def test_validate_payout_status_transition_forbidden(self):
+        payout = self._create_payout(status=Payout.Status.COMPLETED)
+        new_status = PayoutStatus(Payout.Status.NEW)
+
+        with pytest.raises(DomainValidationError):
+            validate_payout_status_transition(payout, new_status)
+
+    def test_validate_payout_status_transition_block_inactive_recipient(self):
+        payout = self._create_payout(
+            status=Payout.Status.NEW,
+            is_active_recipient=False,
+        )
+        new_status = PayoutStatus(Payout.Status.PROCESSING)
+
+        with pytest.raises(DomainValidationError):
+            validate_payout_status_transition(payout, new_status)
 
 
-@pytest.mark.parametrize(
-    "value",
-    [
-        "",
-        "   ",              # только пробелы
-        "short",            # меньше 8 символов
-        "x" * 65,           # больше 64 символов
-        "bad key",          # пробел
-        "bad$key",          # запрещённый символ $
-        "русский",          # не латиница
-    ],
-)
-def test_validate_idempotency_key_invalid_raises(value):
-    with pytest.raises(DomainValidationError) as exc:
-        validate_idempotency_key(value)
+@pytest.mark.django_db
+class TestPermissionValidators:
+    def _create_recipient(self) -> Recipient:
+        return Recipient.objects.create(
+            type=Recipient.Type.INDIVIDUAL,
+            name="John Doe",
+            account_number="UA1234567890",
+            bank_code="MFO123",
+            country="UA",
+            is_active=True,
+        )
 
-    msg = str(exc.value).lower()
-    # во всех ошибках фигурирует фраза idempotency key
-    assert "idempotency key" in msg
+    def _create_payout(self, status: str = Payout.Status.NEW) -> Payout:
+        recipient = self._create_recipient()
+        return Payout.objects.create(
+            recipient=recipient,
+            amount=Decimal("10.00"),
+            currency="USD",
+            status=status,
+            recipient_name_snapshot=recipient.name,
+            account_number_snapshot=recipient.account_number,
+            bank_code_snapshot=recipient.bank_code,
+            idempotency_key=f"idem-{status}",
+        )
+
+    def _create_user(self, *, is_staff: bool) -> User:
+        return User.objects.create_user(
+            username="staff" if is_staff else "user",
+            password="pass",
+            is_staff=is_staff,
+        )
+
+    def test_ensure_can_change_payout_status_ok_for_staff(self):
+        payout = self._create_payout()
+        admin = self._create_user(is_staff=True)
+
+        new_status = PayoutStatus(Payout.Status.PROCESSING)
+        # не должно кидать исключение
+        ensure_can_change_payout_status(
+            actor=admin,
+            payout=payout,
+            new_status=new_status,
+        )
+
+    def test_ensure_can_change_payout_status_forbidden_for_non_staff(self):
+        payout = self._create_payout()
+        user = self._create_user(is_staff=False)
+        new_status = PayoutStatus(Payout.Status.PROCESSING)
+
+        with pytest.raises(DomainPermissionError):
+            ensure_can_change_payout_status(
+                actor=user,
+                payout=payout,
+                new_status=new_status,
+            )

@@ -1,13 +1,14 @@
 """
 dev.py
 
-Настройки для локальной разработки.
-Наследуемся от base.py и переопределяем то, что нужно для dev.
+Development settings.
+Overrides base.py with development-specific configuration.
 """
 
 from .base import *  # noqa
 
-# В dev включаем DEBUG и разрешаем доступ со всех хостов.
+# Enable debug mode in development
 DEBUG = True
 
+# Allow all hosts during development
 ALLOWED_HOSTS = ["*"]

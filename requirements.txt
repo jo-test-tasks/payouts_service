@@ -1,11 +1,10 @@
-Django==4.2.16              # Django 4.2 LTS, как в ТЗ (4.2+)
-djangorestframework==3.15.2 # DRF для REST API
+Django==4.2.16              
+djangorestframework==3.15.2 
 
-celery==5.4.0               # Celery для фоновых задач
-redis==5.0.1                # Python-клиент для Redis
+celery==5.4.0               
+redis==5.0.1                
+psycopg2-binary==2.9.10     
 
-psycopg2-binary==2.9.10     # драйвер PostgreSQL
+django-environ==0.11.2      
 
-django-environ==0.11.2      # удобная работа с .env в settings
-
-
+gunicorn==23.0.0            

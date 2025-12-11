@@ -1,49 +1,40 @@
 # payouts/api/api.py
-from rest_framework.views import APIView
-from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAdminUser
-from payouts.pagination import PayoutCursorPagination
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
-
-from payouts.serializers import (
-    PayoutSerializer,
+from infrastructure.payouts.cache import get_paginated_payouts_response_with_cache
+from payouts.api.serializers import (
     PayoutCreateSerializer,
     PayoutPartialUpdateSerializer,
+    PayoutSerializer,
 )
-
-from payouts.selectors import (
-    list_payouts,
-)
-
-from payouts.repositories import (
-    RecipientRepository,
-    PayoutRepository,
-)
-
-from payouts.services import (
-    create_payout,
-    set_payout_status
-)
+from payouts.application.use_cases import ChangeStatusUseCase, CreatePayoutUseCase
+from payouts.pagination import PayoutCursorPagination
+from payouts.repositories import PayoutRepository
+from payouts.selectors import list_payouts
 
 
 class PayoutListCreateAPIView(APIView):
     """
-    GET /api/payouts/  — список заявок
-    POST /api/payouts/ — создание заявки
+    GET  /api/payouts/  — list payout requests
+    POST /api/payouts/  — create a new payout request
     """
 
-    permission_classes = [AllowAny]  # при желании можно ограничить
+    permission_classes = [AllowAny]
     pagination_class = PayoutCursorPagination
 
     def get(self, request):
-        qs = list_payouts()
-
+        queryset = list_payouts()
         paginator = self.pagination_class()
-        page = paginator.paginate_queryset(qs, request)
 
-        serializer = PayoutSerializer(page, many=True)
-        return paginator.get_paginated_response(serializer.data)
+        return get_paginated_payouts_response_with_cache(
+            request=request,
+            base_queryset=queryset,
+            paginator=paginator,
+            serializer_class=PayoutSerializer,
+        )
 
     def post(self, request):
         serializer = PayoutCreateSerializer(data=request.data)
@@ -54,10 +45,8 @@ class PayoutListCreateAPIView(APIView):
         currency = serializer.validated_data["currency"]
         idempotency_key = serializer.validated_data["idempotency_key"]
 
-        recipient = RecipientRepository.get_recipient_by_id(recipient_id)
-
-        payout, is_duplicate = create_payout(
-            recipient=recipient,
+        payout, is_duplicate = CreatePayoutUseCase.execute(
+            recipient_id=recipient_id,
             amount=amount,
             currency=currency,
             idempotency_key=idempotency_key,
@@ -71,42 +60,38 @@ class PayoutListCreateAPIView(APIView):
 
 class PayoutDetailAPIView(APIView):
     """
-    GET    /api/payouts/{id}/ — получение заявки
-    PATCH  /api/payouts/{id}/ — смена статуса
-    DELETE /api/payouts/{id}/ — удаление заявки
+    GET    /api/payouts/{id}/ — retrieve a payout
+    PATCH  /api/payouts/{id}/ — change payout status
+    DELETE /api/payouts/{id}/ — delete a payout
     """
 
-    # GET может быть публичным, PATCH/DELETE — только staff.
     def get_permissions(self):
         if self.request.method in ("PATCH", "DELETE"):
             return [IsAdminUser()]
         return [AllowAny()]
 
-
     def get(self, request, pk: int):
-        payout = PayoutRepository.get_payout_by_id(pk)
+        payout = PayoutRepository.get_by_id(pk)
         serializer = PayoutSerializer(payout)
         return Response(serializer.data)
 
     def patch(self, request, pk: int):
-        payout = PayoutRepository.get_payout_by_id(pk)
+        payout = PayoutRepository.get_by_id(pk)
 
         serializer = PayoutPartialUpdateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         new_status = serializer.validated_data["status"]
-        
-        updated = set_payout_status(
-                payout=payout,
-                new_status=new_status,
-                actor=request.user,
-            )
-        
+
+        updated = ChangeStatusUseCase.execute(
+            payout=payout,
+            new_status=new_status,
+            actor=request.user,
+        )
 
         return Response(PayoutSerializer(updated).data, status=status.HTTP_200_OK)
 
     def delete(self, request, pk: int):
-        payout = PayoutRepository.get_payout_by_id(pk)
+        payout = PayoutRepository.get_by_id(pk)
         payout.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
-

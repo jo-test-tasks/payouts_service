@@ -3,14 +3,23 @@ from decimal import Decimal
 
 import pytest
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from rest_framework.test import APIClient
 
-from payouts.models import Recipient, Payout
+from payouts.models import Payout, Recipient
 
 User = get_user_model()
 
-
 API_LIST_URL = "/api/payouts/"
+
+
+@pytest.fixture(autouse=True)
+def clear_cache():
+    """
+    Clear cache before each test so that previously cached payout list pages
+    do not affect assertions.
+    """
+    cache.clear()
 
 
 @pytest.mark.django_db
@@ -34,7 +43,7 @@ class TestPayoutListCreateAPI:
         assert response.status_code == 200
         data = response.json()
 
-        # теперь ответ пагинированный
+        # Response is paginated
         assert isinstance(data, dict)
         assert set(data.keys()) == {"next", "previous", "results"}
         assert data["results"] == []
@@ -72,7 +81,6 @@ class TestPayoutListCreateAPI:
         assert "results" in data
         results = data["results"]
 
-        # простой чек: два элемента и нужные id
         assert len(results) == 2
         returned_ids = {item["id"] for item in results}
         assert returned_ids == {p1.id, p2.id}
@@ -104,7 +112,6 @@ class TestPayoutListCreateAPI:
         assert payout.account_number_snapshot == recipient.account_number
         assert payout.bank_code_snapshot == recipient.bank_code
 
-    @pytest.mark.django_db
     def test_create_payout_idempotent_second_time_returns_200_and_same_id(self):
         recipient = self._create_recipient(is_active=True)
 
@@ -128,7 +135,7 @@ class TestPayoutListCreateAPI:
 
     def test_create_payout_recipient_not_found_returns_404(self):
         payload = {
-            "recipient_id": 9999,  # такого нет
+            "recipient_id": 9999,  # non-existent recipient
             "amount": "50.00",
             "currency": "USD",
             "idempotency_key": "idem-api-not-found",
@@ -226,7 +233,6 @@ class TestPayoutDetailAPI:
         payout = self._create_payout()
 
         url = f"/api/payouts/{payout.id}/"
-        # без аутентификации IsAdminUser должен порезать
         response = self.client.delete(url)
 
         assert response.status_code == 403
@@ -272,7 +278,8 @@ class TestPayoutDetailAPI:
 
     def test_patch_payout_status_invalid_transition_returns_400(self):
         """
-        COMPLETED → NEW запрещён валидатором validate_payout_status_transition.
+        COMPLETED → NEW is forbidden by the domain state machine
+        (ChangeStatusUseCase + validate_payout_status_transition).
         """
         payout = self._create_payout(status=Payout.Status.COMPLETED)
 
@@ -288,8 +295,6 @@ class TestPayoutDetailAPI:
 
         response = self.client.patch(url, data=payload, format="json")
 
-        # set_payout_status должен кинуть DomainValidationError,
-        # а custom_exception_handler → 400
         assert response.status_code == 400
         data = response.json()
         assert "detail" in data
