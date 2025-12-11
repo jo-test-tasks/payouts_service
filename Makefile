@@ -2,7 +2,7 @@
 
 .PHONY: help \
         build up down logs web-shell migrate createsuperuser runserver worker worker-logs \
-        build-prod up-prod down-prod logs-prod \
+        build-prod up-prod down-prod logs-prod prod-shell migrate-prod createsuperuser-prod \
         test test-all test-file test-key test-cov test-cov-html \
         lint format clean cache-clear
 
@@ -15,38 +15,41 @@ help:
 	@echo "🚀 Доступные команды:"
 	@echo ""
 	@echo "  DEV:"
-	@echo "    make build             - собрать dev Docker-образы"
-	@echo "    make up                - поднять dev окружение"
-	@echo "    make down              - остановить окружение"
-	@echo "    make logs              - логи dev окружения"
-	@echo "    make web-shell         - bash в web-контейнере"
-	@echo "    make migrate           - применить миграции"
-	@echo "    make createsuperuser   - создать суперпользователя"
-	@echo "    make runserver         - runserver внутри контейнера"
-	@echo "    make worker            - запустить Celery worker (дополнительно)"
-	@echo "    make worker-logs       - логи Celery worker"
+	@echo "    make build                 - собрать dev Docker-образы"
+	@echo "    make up                    - поднять dev окружение"
+	@echo "    make down                  - остановить окружение"
+	@echo "    make logs                  - логи dev окружения"
+	@echo "    make web-shell             - bash в dev web-контейнере"
+	@echo "    make migrate               - применить миграции (dev)"
+	@echo "    make createsuperuser       - создать суперпользователя (dev)"
+	@echo "    make runserver             - runserver внутри dev-контейнера"
+	@echo "    make worker                - запустить Celery worker (dev, доп. режим)"
+	@echo "    make worker-logs           - логи Celery worker (dev)"
 	@echo ""
 	@echo "  PROD:"
-	@echo "    make build-prod        - собрать prod образы"
-	@echo "    make up-prod           - поднять prod окружение"
-	@echo "    make down-prod         - остановить prod окружение"
-	@echo "    make logs-prod         - логи prod окружения"
+	@echo "    make build-prod            - собрать prod-образы"
+	@echo "    make up-prod               - поднять prod окружение"
+	@echo "    make down-prod             - остановить prod окружение"
+	@echo "    make logs-prod             - логи prod окружения"
+	@echo "    make prod-shell            - bash в prod web-контейнере"
+	@echo "    make migrate-prod          - применить миграции (prod)"
+	@echo "    make createsuperuser-prod  - создать суперпользователя (prod)"
 	@echo ""
 	@echo "  TESTS:"
-	@echo "    make test              - pytest (тихий режим)"
-	@echo "    make test-all          - pytest (подробно)"
-	@echo "    make test-file path=... - тест одного файла"
-	@echo "    make test-key  key=...  - тесты по ключу (-k)"
-	@echo "    make test-cov          - тесты с coverage (консоль)"
-	@echo "    make test-cov-html     - тесты + HTML-отчёт coverage"
+	@echo "    make test                  - pytest (тихий режим)"
+	@echo "    make test-all              - pytest (подробно)"
+	@echo "    make test-file path=...    - тест одного файла"
+	@echo "    make test-key  key=...     - тесты по ключу (-k)"
+	@echo "    make test-cov              - тесты с coverage (консоль)"
+	@echo "    make test-cov-html         - тесты + HTML-отчёт coverage"
 	@echo ""
 	@echo "  LINT / FORMAT:"
-	@echo "    make lint              - ruff + isort + black (проверка)"
-	@echo "    make format            - автоформатирование"
+	@echo "    make lint                  - ruff + isort + black (проверка)"
+	@echo "    make format                - автоформатирование"
 	@echo ""
 	@echo "  UTILS:"
-	@echo "    make clean             - удалить *.pyc и __pycache__"
-	@echo "    make cache-clear       - очистить кеш Django + pytest/ruff/coverage"
+	@echo "    make clean                 - удалить *.pyc и __pycache__"
+	@echo "    make cache-clear           - очистить кеш Django + pytest/ruff/coverage"
 	@echo ""
 
 #################################
@@ -98,6 +101,15 @@ down-prod:
 
 logs-prod:
 	docker compose -f docker-compose.prod.yml logs -f
+
+prod-shell:
+	docker compose -f docker-compose.prod.yml exec web bash
+
+migrate-prod:
+	docker compose -f docker-compose.prod.yml exec web python manage.py migrate
+
+createsuperuser-prod:
+	docker compose -f docker-compose.prod.yml exec web python manage.py createsuperuser
 
 #################################
 # TESTS

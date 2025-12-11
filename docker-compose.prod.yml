@@ -1,17 +1,11 @@
-version: "3.9"
-
 services:
   db:
     image: postgres:15-alpine
     container_name: payouts_db
     env_file:
       - .env.prod              # 👈 продовый env
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data_prod:/var/lib/postgresql/data
     # В проде порт наружу можно и не пробрасывать, если БД только для сервиса
     # ports:
     #   - "5432:5432"
@@ -24,7 +18,7 @@ services:
     # ports:
     #   - "6379:6379"
     volumes:
-      - redis_data:/data
+      - redis_data_prod:/data
     restart: always
 
   web:
@@ -61,5 +55,5 @@ services:
     restart: always
 
 volumes:
-  postgres_data:
-  redis_data:
+  postgres_data_prod:
+  redis_data_prod:
