@@ -2,18 +2,18 @@ import os
 
 from celery import Celery
 
-# Берём настройки Django из окружения
+# Load Django settings from environment
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.dev")
 
 app = Celery("config")
 
-# Подтягиваем все настройки, начинающиеся с CELERY_
+# Load all CELERY_* settings from Django settings
 app.config_from_object("django.conf:settings", namespace="CELERY")
 
-# Автоматически искать tasks.py в указанных модулях
+# Automatically discover tasks modules
 app.autodiscover_tasks(
     [
-        "infrastructure.payouts",  # наши инфра-таски для payouts
-        # если захочешь, позже добавишь ещё домены/инфру
+        "infrastructure.payouts",  # infrastructure-level tasks for payouts domain
+        # Additional modules can be added here
     ]
 )

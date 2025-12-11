@@ -18,20 +18,20 @@ from payouts.selectors import list_payouts
 
 class PayoutListCreateAPIView(APIView):
     """
-    GET /api/payouts/  — список заявок
-    POST /api/payouts/ — создание заявки
+    GET  /api/payouts/  — list payout requests
+    POST /api/payouts/  — create a new payout request
     """
 
     permission_classes = [AllowAny]
     pagination_class = PayoutCursorPagination
 
     def get(self, request):
-        qs = list_payouts()
+        queryset = list_payouts()
         paginator = self.pagination_class()
 
         return get_paginated_payouts_response_with_cache(
             request=request,
-            base_queryset=qs,
+            base_queryset=queryset,
             paginator=paginator,
             serializer_class=PayoutSerializer,
         )
@@ -60,9 +60,9 @@ class PayoutListCreateAPIView(APIView):
 
 class PayoutDetailAPIView(APIView):
     """
-    GET    /api/payouts/{id}/ — получение заявки
-    PATCH  /api/payouts/{id}/ — смена статуса
-    DELETE /api/payouts/{id}/ — удаление заявки
+    GET    /api/payouts/{id}/ — retrieve a payout
+    PATCH  /api/payouts/{id}/ — change payout status
+    DELETE /api/payouts/{id}/ — delete a payout
     """
 
     def get_permissions(self):

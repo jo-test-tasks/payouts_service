@@ -10,10 +10,15 @@ logger = logging.getLogger(__name__)
 
 
 def healthcheck(request):
+    """
+    Basic healthcheck endpoint verifying DB and Redis availability.
+    Returns HTTP 200 (healthy) or 503 (degraded).
+    """
+
     db_ok = False
     redis_ok = False
 
-    # DB check
+    # Check database connectivity
     try:
         with connection.cursor() as cursor:
             cursor.execute("SELECT 1;")
@@ -22,18 +27,17 @@ def healthcheck(request):
     except Exception:
         logger.exception("Healthcheck: database check failed")
 
-    # Redis check
+    # Check Redis connectivity
     try:
-        r = redis.Redis.from_url(
+        redis_client = redis.Redis.from_url(
             getattr(settings, "CELERY_BROKER_URL", "redis://redis:6379/0")
         )
-        r.ping()
+        redis_client.ping()
         redis_ok = True
     except Exception:
         logger.exception("Healthcheck: redis check failed")
 
     status = "healthy" if db_ok and redis_ok else "degraded"
-
     http_status = 200 if status == "healthy" else 503
 
     return JsonResponse(

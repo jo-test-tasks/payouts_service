@@ -16,8 +16,8 @@ API_LIST_URL = "/api/payouts/"
 @pytest.fixture(autouse=True)
 def clear_cache():
     """
-    Чистим кеш перед каждым тестом, чтобы
-    старые закешированные страницы списка не мешали.
+    Clear cache before each test so that previously cached payout list pages
+    do not affect assertions.
     """
     cache.clear()
 
@@ -43,7 +43,7 @@ class TestPayoutListCreateAPI:
         assert response.status_code == 200
         data = response.json()
 
-        # теперь ответ пагинированный
+        # Response is paginated
         assert isinstance(data, dict)
         assert set(data.keys()) == {"next", "previous", "results"}
         assert data["results"] == []
@@ -135,7 +135,7 @@ class TestPayoutListCreateAPI:
 
     def test_create_payout_recipient_not_found_returns_404(self):
         payload = {
-            "recipient_id": 9999,  # такого нет
+            "recipient_id": 9999,  # non-existent recipient
             "amount": "50.00",
             "currency": "USD",
             "idempotency_key": "idem-api-not-found",
@@ -278,8 +278,8 @@ class TestPayoutDetailAPI:
 
     def test_patch_payout_status_invalid_transition_returns_400(self):
         """
-        COMPLETED → NEW запрещён доменной state-machine
-        (через ChangeStatusUseCase и validate_payout_status_transition).
+        COMPLETED → NEW is forbidden by the domain state machine
+        (ChangeStatusUseCase + validate_payout_status_transition).
         """
         payout = self._create_payout(status=Payout.Status.COMPLETED)
 

@@ -29,7 +29,7 @@ def test_create_payout_triggers_celery_tasks_via_event_bus():
         "idempotency_key": "idem-celery-1",
     }
 
-    # Патчим именно там, где handle_payout_created дергает .delay(...)
+    # Patch exactly where handle_payout_created calls .delay(...)
     with patch(
         "infrastructure.payouts.event_handlers.process_payout_task.delay"
     ) as mock_process_delay, patch(

@@ -9,14 +9,17 @@ from payouts.models import Payout, Recipient
 
 
 def build_money(amount, currency) -> Money:
+    """Factory helper for Money value object."""
     return Money(amount=amount, currency=currency)
 
 
 def build_idempotency_key(value) -> IdempotencyKey:
+    """Factory helper for IdempotencyKey value object."""
     return IdempotencyKey(value)
 
 
 def build_payout_status(value: str) -> PayoutStatus:
+    """Factory helper for PayoutStatus value object."""
     return PayoutStatus(value=value)
 
 
@@ -26,6 +29,10 @@ def build_new_payout(
     money: Money,
     key: IdempotencyKey,
 ) -> Payout:
+    """
+    Construct a new payout aggregate from domain value objects.
+    Validates recipient and initializes recipient snapshot.
+    """
     validate_recipient_active(recipient)
 
     payout = Payout(
@@ -41,10 +48,10 @@ def build_new_payout(
 
 def change_status(payout: Payout, new_status: PayoutStatus, *, actor) -> Payout:
     """
-    Доменный переход статуса:
-    - права
-    - проверка перехода
-    - изменение сущности
+    Domain-level status transition:
+    - checks permissions
+    - validates transition
+    - mutates the aggregate state
     """
     ensure_can_change_payout_status(
         actor=actor,

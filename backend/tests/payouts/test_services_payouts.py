@@ -40,7 +40,8 @@ class TestBuildNewPayoutService:
             key=key,
         )
 
-        assert payout.pk is None  # ещё не сохранён (фабрика сущности)
+        # Entity factory should not persist the payout
+        assert payout.pk is None
         assert payout.recipient == recipient
         assert payout.amount == Decimal("100.50")
         assert payout.currency == "USD"
@@ -77,7 +78,7 @@ class TestChangeStatusService:
         )
 
     def _create_payout(
-        self, *, status: str = Payout.Status.NEW, is_active_recipient=True
+        self, *, status: str = Payout.Status.NEW, is_active_recipient: bool = True
     ) -> Payout:
         recipient = self._create_recipient(is_active=is_active_recipient)
         return Payout.objects.create(

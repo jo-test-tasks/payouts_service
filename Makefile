@@ -12,44 +12,44 @@
 
 help:
 	@echo ""
-	@echo "🚀 Доступные команды:"
+	@echo "Available commands:"
 	@echo ""
 	@echo "  DEV:"
-	@echo "    make build                 - собрать dev Docker-образы"
-	@echo "    make up                    - поднять dev окружение"
-	@echo "    make down                  - остановить окружение"
-	@echo "    make logs                  - логи dev окружения"
-	@echo "    make web-shell             - bash в dev web-контейнере"
-	@echo "    make migrate               - применить миграции (dev)"
-	@echo "    make createsuperuser       - создать суперпользователя (dev)"
-	@echo "    make runserver             - runserver внутри dev-контейнера"
-	@echo "    make worker                - запустить Celery worker (dev, доп. режим)"
-	@echo "    make worker-logs           - логи Celery worker (dev)"
+	@echo "    make build                 - build dev Docker images"
+	@echo "    make up                    - start dev environment"
+	@echo "    make down                  - stop dev environment"
+	@echo "    make logs                  - tail dev logs"
+	@echo "    make web-shell             - open bash inside the dev web container"
+	@echo "    make migrate               - apply migrations (dev)"
+	@echo "    make createsuperuser       - create a Django superuser (dev)"
+	@echo "    make runserver             - run Django development server"
+	@echo "    make worker                - start Celery worker (dev)"
+	@echo "    make worker-logs           - tail Celery worker logs (dev)"
 	@echo ""
 	@echo "  PROD:"
-	@echo "    make build-prod            - собрать prod-образы"
-	@echo "    make up-prod               - поднять prod окружение"
-	@echo "    make down-prod             - остановить prod окружение"
-	@echo "    make logs-prod             - логи prod окружения"
-	@echo "    make prod-shell            - bash в prod web-контейнере"
-	@echo "    make migrate-prod          - применить миграции (prod)"
-	@echo "    make createsuperuser-prod  - создать суперпользователя (prod)"
+	@echo "    make build-prod            - build production Docker images"
+	@echo "    make up-prod               - start production environment"
+	@echo "    make down-prod             - stop production environment"
+	@echo "    make logs-prod             - tail production logs"
+	@echo "    make prod-shell            - open bash inside the production web container"
+	@echo "    make migrate-prod          - apply migrations (prod)"
+	@echo "    make createsuperuser-prod  - create a Django superuser (prod)"
 	@echo ""
 	@echo "  TESTS:"
-	@echo "    make test                  - pytest (тихий режим)"
-	@echo "    make test-all              - pytest (подробно)"
-	@echo "    make test-file path=...    - тест одного файла"
-	@echo "    make test-key  key=...     - тесты по ключу (-k)"
-	@echo "    make test-cov              - тесты с coverage (консоль)"
-	@echo "    make test-cov-html         - тесты + HTML-отчёт coverage"
+	@echo "    make test                  - run pytest (quiet)"
+	@echo "    make test-all              - run pytest (verbose)"
+	@echo "    make test-file path=...    - run tests for a specific file"
+	@echo "    make test-key  key=...     - run tests with a -k expression"
+	@echo "    make test-cov              - run tests with coverage (console)"
+	@echo "    make test-cov-html         - run coverage and generate HTML report"
 	@echo ""
 	@echo "  LINT / FORMAT:"
-	@echo "    make lint                  - ruff + isort + black (проверка)"
-	@echo "    make format                - автоформатирование"
+	@echo "    make lint                  - ruff + isort + black (check only)"
+	@echo "    make format                - auto-format codebase"
 	@echo ""
 	@echo "  UTILS:"
-	@echo "    make clean                 - удалить *.pyc и __pycache__"
-	@echo "    make cache-clear           - очистить кеш Django + pytest/ruff/coverage"
+	@echo "    make clean                 - remove *.pyc and __pycache__"
+	@echo "    make cache-clear           - clear Django and local caches"
 	@echo ""
 
 #################################
@@ -134,7 +134,7 @@ test-cov:
 test-cov-html:
 	docker compose exec web coverage run -m pytest
 	docker compose exec web coverage html
-	@echo "Откройте htmlcov/index.html для просмотра отчёта"
+	@echo "Open htmlcov/index.html to view the coverage report"
 
 #################################
 # LINT / FORMAT
@@ -159,5 +159,4 @@ clean:
 	find . -type d -name "__pycache__" -delete
 
 cache-clear:
-	docker compose exec web python manage.py clear_cache || true
-	rm -rf backend/.pytest_cache .mypy_cache .ruff_cache .coverage htmlcov || true
+	docker compose exec web python manage.py clear_cache_

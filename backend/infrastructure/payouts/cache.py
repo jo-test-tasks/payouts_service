@@ -8,10 +8,11 @@ from rest_framework.response import Response
 logger = logging.getLogger(__name__)
 
 PAYOUTS_LIST_CACHE_VERSION_KEY = "payouts:list:version"
-PAYOUTS_LIST_PAGE_TTL = 60  # сек, можешь потом подкрутить
+PAYOUTS_LIST_PAGE_TTL = 60  # seconds
 
 
 def safe_cache_get(key, default=None):
+    """Fail-safe wrapper around cache.get()."""
     try:
         return cache.get(key, default)
     except Exception:
@@ -20,6 +21,7 @@ def safe_cache_get(key, default=None):
 
 
 def safe_cache_set(key, value, timeout=None):
+    """Fail-safe wrapper around cache.set()."""
     try:
         cache.set(key, value, timeout=timeout)
     except Exception:
@@ -28,27 +30,23 @@ def safe_cache_set(key, value, timeout=None):
 
 def _get_payouts_list_cache_version() -> int:
     """
-    Глобальная версия кеша списка выплат.
-    При изменении данных мы просто увеличиваем версию,
-    и старые страницы автоматически становятся "протухшими".
+    Returns the current cache version for payouts list.
+    Version bump invalidates all cached pages automatically.
     """
     version = safe_cache_get(PAYOUTS_LIST_CACHE_VERSION_KEY)
     if version is None:
         version = 1
-
         safe_cache_set(PAYOUTS_LIST_CACHE_VERSION_KEY, version, None)
-
     return int(version)
 
 
 def bump_payouts_list_cache_version() -> None:
     """
-    Инвалидация кеша всех страниц через bump версии.
+    Invalidate cached payout list pages by incrementing the global version.
     """
     try:
         cache.incr(PAYOUTS_LIST_CACHE_VERSION_KEY)
     except Exception:
-        # ключа ещё нет — просто выставим 2 как следующее значение
         logger.warning(
             "Cache incr failed for key=%s, resetting to 2",
             PAYOUTS_LIST_CACHE_VERSION_KEY,
@@ -59,14 +57,13 @@ def bump_payouts_list_cache_version() -> None:
 
 def _build_payouts_page_cache_key(request) -> str:
     """
-    Ключ зависит:
-    - от URL (path)
-    - от query-параметров (особенно cursor)
-    - от версии кеша
+    Builds a deterministic cache key based on:
+    - request path
+    - sorted query parameters
+    - current cache version
     """
     version = _get_payouts_list_cache_version()
 
-    # Нормализуем query-параметры: сортируем, чтобы порядок в URL не влиял
     items = sorted(request.query_params.items())
     query_string = urlencode(items)
 
@@ -80,22 +77,21 @@ def get_paginated_payouts_response_with_cache(
     serializer_class,
 ):
     """
-    Возвращает DRF Response с пагинированным списком выплат,
-    используя кеш готового ответа (JSON-структуры), привязанного к курсору.
+    Returns a paginated DRF Response object.
+    Uses cache for storing fully rendered paginated JSON payloads.
     """
     cache_key = _build_payouts_page_cache_key(request)
 
     cached_data = safe_cache_get(cache_key)
     if cached_data is not None:
-        # cached_data — это dict/OrderedDict с полями cursor-пагинации
         return Response(cached_data)
 
-    # Ходим в БД, если кеша нет
+    # Query database when no cached page is found
     page = paginator.paginate_queryset(base_queryset, request)
     serializer = serializer_class(page, many=True)
     response = paginator.get_paginated_response(serializer.data)
 
-    # Сохраняем уже готовый payload (response.data) в кеш
+    # Cache the serialized page result
     safe_cache_set(cache_key, response.data, timeout=PAYOUTS_LIST_PAGE_TTL)
 
     return response

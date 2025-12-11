@@ -24,9 +24,9 @@ logger = logging.getLogger(__name__)
 )
 def rebuild_payouts_cache_task(self) -> None:
     """
-    Простая инфраструктурная задача:
-    - bump версии кеша списка выплат;
-    - при сбоях попробует несколько раз с backoff.
+    Infrastructure task:
+    - increments global payouts list cache version
+    - retries automatically with exponential backoff on failure
     """
     logger.info(
         "rebuild_payouts_cache_task started: task_id=%s",
@@ -36,7 +36,6 @@ def rebuild_payouts_cache_task(self) -> None:
     try:
         bump_payouts_list_cache_version()
     except Exception:
-        # log + проброс для autoretry_for
         logger.exception(
             "rebuild_payouts_cache_task failed: task_id=%s (will be retried)",
             self.request.id,
@@ -59,10 +58,10 @@ def rebuild_payouts_cache_task(self) -> None:
 )
 def process_payout_task(self, payout_id: int) -> None:
     """
-    Идемпотентная задача обработки выплаты:
-    - безопасно обрабатывает повторные вызовы (после ретраев);
-    - не падает, если выплаты уже нет;
-    - меняет статус по простому сценарию NEW -> PROCESSING -> COMPLETED.
+    Idempotent payout processing task:
+    - handles repeat executions safely (Celery retries)
+    - exits gracefully if payout no longer exists
+    - transitions payout through NEW → PROCESSING → COMPLETED
     """
     logger.info(
         "process_payout_task started: task_id=%s, payout_id=%s, retries=%s",
@@ -71,11 +70,10 @@ def process_payout_task(self, payout_id: int) -> None:
         self.request.retries,
     )
 
-    # 1) Пытаемся достать выплату
+    # 1) Fetch payout
     try:
         payout = PayoutRepository.get_by_id(payout_id)
     except DomainNotFoundError:
-        # Выплата уже удалена/не существует — логируем и выходим без ретраев
         logger.warning(
             "process_payout_task: payout not found, skipping. "
             "task_id=%s, payout_id=%s",
@@ -84,7 +82,7 @@ def process_payout_task(self, payout_id: int) -> None:
         )
         return
 
-    # 2) Идемпотентность: если уже в финальном статусе — просто выходим
+    # 2) Idempotency: skip if payout already in terminal state
     if payout.status in (Payout.Status.COMPLETED, Payout.Status.FAILED):
         logger.info(
             "process_payout_task: payout already in terminal state, skipping. "
@@ -95,15 +93,16 @@ def process_payout_task(self, payout_id: int) -> None:
         )
         return
 
-    # 3) Основной рабочий поток
+    # 3) Main processing flow
     try:
         with transaction.atomic():
-            # Шаг 1: помечаем как PROCESSING (если ещё NEW)
+
+            # Step 1: move NEW → PROCESSING
             if payout.status == Payout.Status.NEW:
                 payout = ChangeStatusUseCase.execute(
                     payout=payout,
                     new_status=Payout.Status.PROCESSING,
-                    actor=None,  # системный актор
+                    actor=None,  # system actor
                 )
                 logger.info(
                     "process_payout_task: payout moved to PROCESSING. "
@@ -112,16 +111,11 @@ def process_payout_task(self, payout_id: int) -> None:
                     payout_id,
                 )
 
-            # Здесь мог бы быть вызов внешнего платёжного провайдера:
-            #
-            # provider_response = external_provider.charge(...)
-            # if not provider_response.ok:
-            #     raise SomeProviderError(...)
-            #
-            # Для демо оставим мягкую "задержку":
+            # Placeholder for external provider call
+            # sleep() simulates network delay
             sleep(1)
 
-            # Шаг 2: помечаем как COMPLETED (если всё ок)
+            # Step 2: move PROCESSING → COMPLETED
             payout = ChangeStatusUseCase.execute(
                 payout=payout,
                 new_status=Payout.Status.COMPLETED,
@@ -137,7 +131,6 @@ def process_payout_task(self, payout_id: int) -> None:
         )
 
     except Exception:
-        # Любая ошибка — лог + проброс для autoretry_for
         logger.exception(
             "process_payout_task failed: task_id=%s, payout_id=%s "
             "(will be retried if retries left)",

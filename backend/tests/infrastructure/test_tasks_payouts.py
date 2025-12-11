@@ -29,7 +29,7 @@ def test_process_payout_task_changes_status_to_completed():
         idempotency_key="idem-task-1",
     )
 
-    # Вызываем таску синхронно — без celery worker
+    
     process_payout_task(payout.id)
 
     payout.refresh_from_db()

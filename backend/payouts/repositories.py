@@ -1,4 +1,3 @@
-# payouts/repositories.py
 from typing import Optional
 
 from core.exceptions import DomainNotFoundError
@@ -19,7 +18,10 @@ class PayoutRepository:
     @staticmethod
     def get_by_id(payout_id: int) -> Payout:
         try:
-            return Payout.objects.select_related("recipient").get(pk=payout_id)
+            return (
+                Payout.objects.select_related("recipient")
+                .get(pk=payout_id)
+            )
         except Payout.DoesNotExist:
             raise DomainNotFoundError("Payout not found")
 
@@ -34,8 +36,9 @@ class PayoutRepository:
     @staticmethod
     def get_by_idempotency_key(key: IdempotencyKey) -> Payout:
         try:
-            return Payout.objects.select_related("recipient").get(
-                idempotency_key=key.value
+            return (
+                Payout.objects.select_related("recipient")
+                .get(idempotency_key=key.value)
             )
         except Payout.DoesNotExist:
             raise DomainNotFoundError("Payout not found")
@@ -43,8 +46,8 @@ class PayoutRepository:
     @staticmethod
     def save(payout: Payout) -> Payout:
         """
-        Репозиторий ничего не знает о бизнес-логике.
-        Ему дают готовую доменную сущность — он просто её сохраняет.
+        Repository layer does not contain business logic.
+        It receives a fully constructed domain entity and simply persists it.
         """
         payout.save()
         return payout

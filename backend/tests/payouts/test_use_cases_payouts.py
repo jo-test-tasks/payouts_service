@@ -62,7 +62,7 @@ class TestCreatePayoutUseCase:
         )
         second_payout, is_dup_2 = CreatePayoutUseCase.execute(
             recipient_id=recipient.id,
-            amount=Decimal("999.99"),  # даже если сумма другая
+            amount=Decimal("999.99"),  # even if the amount is different
             currency="USD",
             idempotency_key="idem-usecase-3",
         )
@@ -86,7 +86,7 @@ class TestChangeStatusUseCase:
         )
 
     def _create_payout(
-        self, *, status: str = Payout.Status.NEW, is_active_recipient=True
+        self, *, status: str = Payout.Status.NEW, is_active_recipient: bool = True
     ) -> Payout:
         recipient = self._create_recipient(is_active=is_active_recipient)
         return Payout.objects.create(
@@ -136,7 +136,7 @@ class TestChangeStatusUseCase:
 
     def test_change_status_invalid_transition_raises(self):
         """
-        COMPLETED → NEW должно ломаться по state-machine.
+        COMPLETED → NEW must fail due to domain state machine rules.
         """
         payout = self._create_payout(status=Payout.Status.COMPLETED)
         admin = self._create_user(is_staff=True)
@@ -153,8 +153,8 @@ class TestChangeStatusUseCase:
 
     def test_change_status_recipient_inactive_block_forward(self):
         """
-        Если получатель стал неактивным — нельзя двигать выплату в PROCESSING/COMPLETED.
-        (Это наше новое доменное правило)
+        If recipient becomes inactive, payout cannot move to PROCESSING/COMPLETED.
+        This is enforced by domain rules.
         """
         payout = self._create_payout(
             status=Payout.Status.NEW,

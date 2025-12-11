@@ -1,9 +1,10 @@
-# Dockerfile.dev (DEV)
+# Dockerfile (Development)
 FROM python:3.12-slim
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
+# System dependencies required for psycopg2 and other C-based packages
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libpq-dev \
@@ -11,16 +12,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# Копируем оба файла с зависимостями
+# Copy dependency files
 COPY requirements.txt requirements.dev.txt /app/
 
-# Ставим dev-зависимости (внутри есть -r requirements.txt)
+# Install development dependencies (includes runtime deps via -r requirements.txt)
 RUN pip install --no-cache-dir -r requirements.dev.txt
 
-# Копируем весь проект (но код всё равно перекроем volume-ом в dev-compose)
+# Copy the entire project (source code will be overridden by bind mounts in docker-compose)
 COPY . /app/
 
-# Переключаемся в backend, где manage.py
+# Switch to backend directory
 WORKDIR /app/backend
 
 CMD ["bash", "-c", "python manage.py runserver 0.0.0.0:8000"]

@@ -35,7 +35,7 @@ class CreatePayoutUseCase:
             )
             return existing, True
 
-        # строим доменную сущность через фабрику
+        # Build domain entity via factory
         payout = build_new_payout(
             recipient=recipient,
             money=money,
@@ -45,7 +45,7 @@ class CreatePayoutUseCase:
         try:
             payout = PayoutRepository.save(payout)
         except IntegrityError:
-            # при гонке достаём по ключу
+            # Resolve race condition by fetching payout by idempotency key
             payout = PayoutRepository.get_by_idempotency_key(key)
             logger.warning(
                 "Idempotency race resolved: key=%s, payout_id=%s, recipient_id=%s",
@@ -74,7 +74,7 @@ class ChangeStatusUseCase:
     @transaction.atomic
     def execute(*, payout, new_status, actor):
         old_status = payout.status
-        # граница домена: здесь мы превращаем примитив в VO
+        # Domain boundary: convert primitive value into a Value Object
         status_vo = build_payout_status(new_status)
 
         payout = change_status(

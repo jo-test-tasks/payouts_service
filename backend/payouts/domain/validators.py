@@ -11,13 +11,13 @@ def validate_recipient_active(
     message: str | None = None,
 ) -> None:
     """
-    Базовая доменная проверка, что получатель активен.
+    Basic domain check ensuring the recipient is active.
 
-    :param recipient: объект получателя
-    :param message: кастомный текст ошибки (опционально)
+    :param recipient: recipient entity
+    :param message: optional custom error message
     """
     if not recipient.is_active:
-        raise DomainValidationError(message or "Получатель не активен.")
+        raise DomainValidationError(message or "Recipient is not active.")
 
 
 def validate_payout_status_transition(
@@ -25,8 +25,8 @@ def validate_payout_status_transition(
     new_status: PayoutStatus,
 ) -> None:
     """
-    Доменная проверка допустимости перехода статуса выплаты.
-    Включает правило про неактивного получателя.
+    Validate that the payout status transition is allowed.
+    Includes a rule for inactive recipients.
     """
     allowed_transitions: dict[str, set[str]] = {
         Payout.Status.NEW: {Payout.Status.PROCESSING, Payout.Status.FAILED},
@@ -37,10 +37,10 @@ def validate_payout_status_transition(
 
     new_value = new_status.value
 
-    # доменное правило про неактивного получателя — используем базовый валидатор
+    # Domain rule for inactive recipient — reuse shared validator
     validate_recipient_active(
         payout.recipient,
-        message="Нельзя обработать выплату: получатель больше не активен.",
+        message="Cannot process payout: recipient is no longer active.",
     )
 
     current_status = payout.status
@@ -48,7 +48,7 @@ def validate_payout_status_transition(
 
     if new_value not in allowed:
         raise DomainValidationError(
-            f"Нельзя перевести из {current_status} в {new_value}"
+            f"Invalid status transition from {current_status} to {new_value}"
         )
 
 
@@ -59,13 +59,14 @@ def ensure_can_change_payout_status(
     new_status: PayoutStatus,
 ) -> None:
     """
-    Доменная проверка прав на изменение статуса выплаты.
-    - HTTP-запросы приходят с actor=request.user
-    - Системные вызовы (Celery и т.п.) идут с actor=None
+    Domain-level permission check for changing payout status.
+
+    - HTTP requests pass actor=request.user
+    - System calls (Celery, etc.) use actor=None
     """
-    # Системные вызовы (Celery и пр.) идут с actor=None
+    # System calls (Celery, etc.) use actor=None
     if actor is None:
         return
 
     if not getattr(actor, "is_staff", False):
-        raise DomainPermissionError("Недостаточно прав.")
+        raise DomainPermissionError("Insufficient permissions.")

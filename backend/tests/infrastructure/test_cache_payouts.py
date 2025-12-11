@@ -35,18 +35,17 @@ def test_list_payouts_uses_cache_for_second_request():
         idempotency_key="idem-cache-1",
     )
 
-    # Первый запрос — кеш прогревается
+    # First request — warms up the cache
     with CaptureQueriesContext(connection) as ctx1:
         resp1 = client.get(API_LIST_URL)
     assert resp1.status_code == 200
     queries_first = len(ctx1)
 
-    # Второй запрос — должен ходить в БД меньше (или вообще не трогать payouts)
+    # Second request — should hit the DB fewer times (cache should be used)
     with CaptureQueriesContext(connection) as ctx2:
         resp2 = client.get(API_LIST_URL)
     assert resp2.status_code == 200
     queries_second = len(ctx2)
 
-    # В реале могут быть системные запросы (auth, contenttypes), поэтому
-    # просто требуем, чтобы второй запрос был "дешевле"
+    # We don't require zero DB queries, because Django may issue internal ones
     assert queries_second <= queries_first

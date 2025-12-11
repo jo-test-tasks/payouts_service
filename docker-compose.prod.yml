@@ -3,28 +3,28 @@ services:
     image: postgres:15-alpine
     container_name: payouts_db
     env_file:
-      - .env.prod              # 👈 продовый env
+      - .env.prod
     volumes:
       - postgres_data_prod:/var/lib/postgresql/data
-    # В проде порт наружу можно и не пробрасывать, если БД только для сервиса
+    restart: always
+    # Port publishing is disabled in production (database is internal-only)
     # ports:
     #   - "5432:5432"
-    restart: always
 
   redis:
     image: redis:7-alpine
     container_name: payouts_redis
-    # Redis обычно тоже не светят наружу
-    # ports:
-    #   - "6379:6379"
     volumes:
       - redis_data_prod:/data
     restart: always
+    # Redis is internal-only in production
+    # ports:
+    #   - "6379:6379"
 
   web:
     build:
       context: .
-      dockerfile: Dockerfile     # 👈 продовый Dockerfile
+      dockerfile: Dockerfile
     container_name: payouts_web
     command: >
       gunicorn config.wsgi:application
@@ -36,13 +36,13 @@ services:
       - db
       - redis
     ports:
-      - "8000:8000"              # 👈 сюда будет ходить внешний мир / nginx
+      - "8000:8000"  # Public HTTP endpoint
     restart: always
 
   worker:
     build:
       context: .
-      dockerfile: Dockerfile     # 👈 тот же образ, что и web
+      dockerfile: Dockerfile
     container_name: payouts_worker
     command: >
       celery -A config worker -l info

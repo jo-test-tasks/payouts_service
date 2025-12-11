@@ -1,10 +1,9 @@
-# docker-compose.yml (DEV)
 services:
   db:
     image: postgres:15-alpine
     container_name: payouts_db
     env_file:
-      - .env.dev        # <- добавили
+      - .env.dev
     ports:
       - "5432:5432"
     volumes:
@@ -23,11 +22,11 @@ services:
   web:
     build:
       context: .
-      dockerfile: Dockerfile.dev   # ← dev Dockerfile
+      dockerfile: Dockerfile.dev
     container_name: payouts_web
     command: ["bash", "-c", "python manage.py runserver 0.0.0.0:8000"]
     volumes:
-      - ./backend:/app/backend     # ← bind-mount кода для разработки
+      - ./backend:/app/backend  # Bind-mounted source code for development
     env_file:
       - .env.dev
     depends_on:
@@ -40,11 +39,11 @@ services:
   worker:
     build:
       context: .
-      dockerfile: Dockerfile.dev   # ← тот же dev-образ
+      dockerfile: Dockerfile.dev
     container_name: payouts_worker
     command: ["bash", "-c", "celery -A config worker -l info"]
     volumes:
-      - ./backend:/app/backend
+      - ./backend:/app/backend  # Bind-mounted code for live reload during development
     env_file:
       - .env.dev
     depends_on:

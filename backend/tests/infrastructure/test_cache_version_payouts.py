@@ -15,9 +15,8 @@ from infrastructure.payouts.cache import (
 def test_bump_payouts_list_cache_version_changes_cache_key():
     factory = APIRequestFactory()
 
-    # Django WSGIRequest
+    # Create DRF Request (provides .query_params)
     django_request = factory.get("/api/payouts/", {"cursor": "abc"})
-    # Оборачиваем в DRF Request, чтобы был .query_params
     request = Request(django_request)
 
     cache.clear()
