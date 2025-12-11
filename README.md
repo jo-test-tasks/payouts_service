@@ -1,9 +1,19 @@
 # Payouts Service
-Made with ❤️by Evhen
+Made with ❤️ by Evhen
 
-A production-grade payout processing service built with **Django**, **DRF**, **Celery**, **Redis**, and **PostgreSQL**.
+A production-grade payout processing backend built with **Django**, **DRF**, **Celery**, **Redis**, and **PostgreSQL**.  
+Designed using **Clean Architecture** and **DDD principles** to keep business logic isolated, infrastructure interchangeable, and the system maintainable and extensible.
 
-Designed using principles of **Clean Architecture** and **Domain-Driven Design**, keeping business logic isolated, infrastructure interchangeable, and the codebase easy to extend and maintain.
+## TL;DR
+
+- Django + DRF + Celery + Redis + PostgreSQL  
+- Clean Architecture + DDD-inspired layering  
+- Idempotent payout creation with race-condition handling  
+- Event-driven async payout processing via Celery  
+- Redis-backed payout list cache with versioned invalidation  
+- High test coverage (~95–100%)  
+- Fully dockerized dev/prod environments  
+- Makefile automation for tests, linting, and running the stack
 
 ---
 
@@ -11,9 +21,16 @@ Designed using principles of **Clean Architecture** and **Domain-Driven Design**
 
 This project was implemented as a **technical test assignment**.
 
-The goal was not only to solve the business problem, but to demonstrate a **mature backend architecture**.
+The goal was not only to satisfy the functional requirements, but to demonstrate:
 
-Even though the scope is small, the architecture reflects practices used in **real-world backend services**.
+- a mature backend service structure,  
+- production-ready patterns,  
+- isolation of domain logic,  
+- async workflows,  
+- idempotent operations,  
+- and strong test coverage.
+
+Even though the business scope is small, the architecture mirrors real-world financial systems.
 
 ---
 
@@ -193,6 +210,52 @@ Create a payout (idempotent).
   - returns payout DTO
   - triggers async processing via Celery.
 
+```
+Request:
+
+json
+{
+  "recipient_id": 1,
+  "amount": "100.50",
+  "currency": "USD",
+  "idempotency_key": "unique-key-123"
+}
+```
+
+```
+Response 201 Created:
+
+json
+{
+  "id": 10,
+  "recipient_id": 1,
+  "amount": "100.50",
+  "currency": "USD",
+  "status": "NEW",
+  "recipient_name_snapshot": "John Doe",
+  "account_number_snapshot": "UA1234567890",
+  "bank_code_snapshot": "MFO123",
+  "created_at": "2025-01-01T12:00:00Z",
+  "updated_at": "2025-01-01T12:00:00Z"
+}
+```
+
+```Response 200 (Idempotent repeat):
+
+json
+{
+  "id": 10,
+  "recipient_id": 1,
+  "amount": "100.50",
+  "currency": "USD",
+  "status": "NEW",
+  "recipient_name_snapshot": "John Doe",
+  "account_number_snapshot": "UA1234567890",
+  "bank_code_snapshot": "MFO123",
+  "created_at": "...",
+  "updated_at": "..."
+}
+```
 ### **GET `/api/payouts/`**
 
 List payouts with cursor pagination.
@@ -200,24 +263,127 @@ List payouts with cursor pagination.
 - Results are cached in Redis.
 - Cache invalidates automatically when payouts change.
 
+```Response 200:
+
+json
+{
+  "next": "http://localhost:8000/api/payouts/?cursor=cD0y",
+  "previous": null,
+  "results": [
+    {
+      "id": 12,
+      "recipient_id": 1,
+      "amount": "150.00",
+      "currency": "USD",
+      "status": "PROCESSING",
+      "recipient_name_snapshot": "John Doe",
+      "account_number_snapshot": "UA123...",
+      "bank_code_snapshot": "MFO123",
+      "created_at": "2025-01-01T12:30:00Z",
+      "updated_at": "2025-01-01T12:31:00Z"
+    },
+    {
+      "id": 11,
+      "recipient_id": 1,
+      "amount": "100.00",
+      "currency": "USD",
+      "status": "NEW",
+      "recipient_name_snapshot": "John Doe",
+      "account_number_snapshot": "UA123...",
+      "bank_code_snapshot": "MFO123",
+      "created_at": "2025-01-01T12:00:00Z",
+      "updated_at": "2025-01-01T12:00:00Z"
+    }
+  ]
+}
+```
 ### **GET `/api/payouts/{id}/`**
 
 Retrieve single payout by ID.
 
+```Response 200
+{
+  "id": 10,
+  "recipient_id": 1,
+  "amount": "100.00",
+  "currency": "USD",
+  "status": "NEW",
+  "recipient_name_snapshot": "John Doe",
+  "account_number_snapshot": "UA123...",
+  "bank_code_snapshot": "MFO123",
+  "created_at": "...",
+  "updated_at": "..."
+}
+```
+```Response 400
+{
+  "detail": "Payout not found"
+}
+```
 ### **PATCH `/api/payouts/{id}/`**
 
 Admin-only status change.
 
 - Validates allowed transitions at domain level.
 
+```Request:
+{
+  "status": "PROCESSING"
+}
+```
+
+```Response 200
+{
+  "id": 10,
+  "recipient_id": 1,
+  "amount": "100.00",
+  "currency": "USD",
+  "status": "PROCESSING",
+  "recipient_name_snapshot": "John Doe",
+  "account_number_snapshot": "UA123...",
+  "bank_code_snapshot": "MFO123",
+  "created_at": "...",
+  "updated_at": "..."
+}
+```
+
+```Response 400 (Invalid transition)
+
+{
+  "detail": "Invalid status transition from COMPLETED to NEW"
+}s
+```
 ### **DELETE `/api/payouts/{id}/`**
 
 Admin-only delete.
+```Response 204
 
+(no content)
+```
+
+```Response 404
+{
+  "detail": "Payout not found"
+}
+```
 ### **GET `/health/`**
 
 Simple healthcheck endpoint, covered by tests.
+```Response 200
+{
+  "database": true,
+  "redis": true,
+  "status": "healthy"
+}
+```
 
+```Example degraded:
+{
+  "database": false,
+  "redis": true,
+  "status": "degraded"
+}
+```
 ---
 
 ## 🧪 Tests & Coverage

@@ -18,10 +18,7 @@ class PayoutRepository:
     @staticmethod
     def get_by_id(payout_id: int) -> Payout:
         try:
-            return (
-                Payout.objects.select_related("recipient")
-                .get(pk=payout_id)
-            )
+            return Payout.objects.select_related("recipient").get(pk=payout_id)
         except Payout.DoesNotExist:
             raise DomainNotFoundError("Payout not found")
 
@@ -36,9 +33,8 @@ class PayoutRepository:
     @staticmethod
     def get_by_idempotency_key(key: IdempotencyKey) -> Payout:
         try:
-            return (
-                Payout.objects.select_related("recipient")
-                .get(idempotency_key=key.value)
+            return Payout.objects.select_related("recipient").get(
+                idempotency_key=key.value
             )
         except Payout.DoesNotExist:
             raise DomainNotFoundError("Payout not found")

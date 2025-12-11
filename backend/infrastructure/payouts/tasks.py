@@ -96,7 +96,6 @@ def process_payout_task(self, payout_id: int) -> None:
     # 3) Main processing flow
     try:
         with transaction.atomic():
-
             # Step 1: move NEW → PROCESSING
             if payout.status == Payout.Status.NEW:
                 payout = ChangeStatusUseCase.execute(

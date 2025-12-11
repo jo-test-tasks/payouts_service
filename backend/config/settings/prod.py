@@ -12,7 +12,6 @@ import os
 
 from .base import *  # noqa: F403
 
-
 # Debug must always remain disabled in production
 DEBUG = False
 

@@ -6,7 +6,6 @@ urlpatterns = [
     # GET  /api/payouts/     — list payouts
     # POST /api/payouts/     — create payout
     path("", PayoutListCreateAPIView.as_view(), name="payouts-list-create"),
-
     # GET    /api/payouts/<id>/ — retrieve payout
     # PATCH  /api/payouts/<id>/ — update status
     # DELETE /api/payouts/<id>/ — delete payout
