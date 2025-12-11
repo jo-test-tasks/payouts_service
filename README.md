@@ -201,19 +201,19 @@ This makes cache invalidation explicit and predictable.
 
 ## 📘 API Overview
 
-### **POST `/api/payouts/`**
+---
+
+## **POST `/api/payouts/`**
 
 Create a payout (idempotent).
 
-- Validates recipient, amount, currency, idempotency key.
+- Validates recipient, amount, currency, idempotency key.  
 - On success:
-  - returns payout DTO
-  - triggers async processing via Celery.
+  - returns payout DTO  
+  - triggers async processing via Celery  
 
-```
-Request:
-
-json
+### **Request**
+```json
 {
   "recipient_id": 1,
   "amount": "100.50",
@@ -222,10 +222,8 @@ json
 }
 ```
 
-```
-Response 201 Created:
-
-json
+### **Response 201 Created**
+```json
 {
   "id": 10,
   "recipient_id": 1,
@@ -240,9 +238,8 @@ json
 }
 ```
 
-```Response 200 (Idempotent repeat):
-
-json
+### **Response 200 (idempotent repeat)**
+```json
 {
   "id": 10,
   "recipient_id": 1,
@@ -256,16 +253,18 @@ json
   "updated_at": "..."
 }
 ```
-### **GET `/api/payouts/`**
 
-List payouts with cursor pagination.
+---
 
-- Results are cached in Redis.
-- Cache invalidates automatically when payouts change.
+## **GET `/api/payouts/`**
 
-```Response 200:
+List payouts using cursor pagination.
 
-json
+- Results may be cached in Redis.  
+- Cache automatically invalidates when payouts change.
+
+### **Response 200**
+```json
 {
   "next": "http://localhost:8000/api/payouts/?cursor=cD0y",
   "previous": null,
@@ -297,11 +296,15 @@ json
   ]
 }
 ```
-### **GET `/api/payouts/{id}/`**
 
-Retrieve single payout by ID.
+---
 
-```Response 200
+## **GET `/api/payouts/{id}/`**
+
+Retrieve payout by ID.
+
+### **Response 200**
+```json
 {
   "id": 10,
   "recipient_id": 1,
@@ -315,24 +318,31 @@ Retrieve single payout by ID.
   "updated_at": "..."
 }
 ```
-```Response 400
+
+### **Response 404**
+```json
 {
   "detail": "Payout not found"
 }
 ```
-### **PATCH `/api/payouts/{id}/`**
 
-Admin-only status change.
+---
+
+## **PATCH `/api/payouts/{id}/`**
+
+Admin-only status update.
 
 - Validates allowed transitions at domain level.
 
-```Request:
+### **Request**
+```json
 {
   "status": "PROCESSING"
 }
 ```
 
-```Response 200
+### **Response 200**
+```json
 {
   "id": 10,
   "recipient_id": 1,
@@ -347,29 +357,37 @@ Admin-only status change.
 }
 ```
 
-```Response 400 (Invalid transition)
-
+### **Response 400 (invalid transition)**
+```json
 {
   "detail": "Invalid status transition from COMPLETED to NEW"
-}s
+}
 ```
-### **DELETE `/api/payouts/{id}/`**
+
+---
+
+## **DELETE `/api/payouts/{id}/`**
 
 Admin-only delete.
-```Response 204
 
-(no content)
-```
+### **Response 204**
+_No content_
 
-```Response 404
+### **Response 404**
+```json
 {
   "detail": "Payout not found"
 }
 ```
-### **GET `/health/`**
 
-Simple healthcheck endpoint, covered by tests.
-```Response 200
+---
+
+## **GET `/health/`**
+
+Service healthcheck.
+
+### **Response 200**
+```json
 {
   "database": true,
   "redis": true,
@@ -377,385 +395,140 @@ Simple healthcheck endpoint, covered by tests.
 }
 ```
 
-```Example degraded:
+### **Example degraded**
+```json
 {
   "database": false,
   "redis": true,
   "status": "degraded"
 }
 ```
----
+
 
 ## 🧪 Tests & Coverage
 
-Tests are implemented with **pytest** and **pytest-django** and cover:
+Covers:
 
-- domain value objects and validators  
-- services and use cases  
-- API endpoints (happy path + negative scenarios)  
-- cache behavior and versioning  
-- Celery tasks and event handlers  
-- healthcheck endpoint  
+- domain logic  
+- services & use cases  
+- API endpoints  
+- caching & cache versioning  
+- Celery workflow  
+- event handlers  
+- healthcheck  
 
-Test settings (`config.settings.test`) configure:
-
-- fast password hasher  
-- in-memory email backend  
-- local-memory cache backend  
-- Celery in **eager mode** (`CELERY_TASK_ALWAYS_EAGER=True`), so tests do not depend on a running worker.
-
-Typical line coverage is around **95–100%** for the core payouts domain and infrastructure.
-
-### Run tests (quiet):
+Run tests:
 
 ```bash
 make test
 ```
 
-### Run tests (verbose):
-
-```bash
-make test-all
-```
-
-### Run single file:
-
-```bash
-make test-file path=backend/tests/payouts/test_api_payouts.py
-```
-
-### Filter tests by keyword:
-
-```bash
-make test-key key=payouts
-```
-
-### Coverage (console):
+Coverage:
 
 ```bash
 make test-cov
 ```
 
-### Coverage (HTML report):
-
-```bash
-make test-cov-html
-# open htmlcov/index.html in browser
-```
-
 ---
 
-## 🧹 Code Quality (Lint & Format)
+## 🧹 Code Quality
 
-Static analysis and formatting are enforced via **Ruff**, **isort**, and **Black**.
-
-### Check only (CI-style):
+Check:
 
 ```bash
 make lint
-# runs:
-#   ruff check .
-#   isort . --check-only
-#   black . --check
 ```
 
-### Auto-fix / auto-format:
+Format:
 
 ```bash
 make format
-# runs:
-#   ruff format .
-#   isort .
-#   black .
 ```
 
 ---
 
 ## ⚙️ Environments & Configuration
 
-Project uses three settings modules:
+The project uses three settings modules:
 
-- `config.settings.dev` — local development  
-- `config.settings.prod` — production‑like environment  
-- `config.settings.test` — pytest configuration  
+- `config.settings.dev` — development environment  
+- `config.settings.prod` — production-like environment  
+- `config.settings.test` — pytest environment  
 
-You must create two files based on examples:
+Environment files must be created based on the provided examples:
 
-### ✔️ `.env.dev` — for development
+### ✔️ Development
 
-Create file:
+Create `.env.dev`:
 
-```
+```bash
 cp .env.example .env.dev
-```
+```  
 
-Minimal content:
+### ✔️ Production
 
-```
-# ===========================
-# Django
-# ===========================
+Create `.env.prod`:
 
-# Django settings module
-DJANGO_SETTINGS_MODULE=config.settings.dev
-
-# Development secret key (NOT for production)
-DJANGO_SECRET_KEY=dev-secret-key-change-me
-
-# Debug mode: 1 = True, 0 = False
-DJANGO_DEBUG=1
-
-# Allowed hosts for local development
-ALLOWED_HOSTS=*
-
-
-# ===========================
-# PostgreSQL
-# ===========================
-
-# Must match docker-compose.yml values
-POSTGRES_DB=payouts_dev
-POSTGRES_USER=payouts_user
-POSTGRES_PASSWORD=payouts_password
-POSTGRES_HOST=db
-POSTGRES_PORT=5432
-
-
-# ===========================
-# Redis / Celery
-# ===========================
-
-# Redis broker for Celery
-CELERY_BROKER_URL=redis://redis:6379/0
-
-# Redis instance for Django cache
-REDIS_CACHE_URL=redis://redis:6379/2
-
-# Optional general-purpose Redis URL
-REDIS_URL=redis://redis:6379/0
-
-
-# ===========================
-# Misc
-# ===========================
-
-# Logging level (INFO / DEBUG / WARNING / ERROR)
-LOG_LEVEL=INFO
-
-# Database connection max lifetime (seconds)
-DB_CONN_MAX_AGE=60
-
-```
-
----
-
-### ✔️ `.env.prod` — for production
-
-Create:
-
-```
+```bash
 cp .env.prod.example .env.prod
 ```
 
-Content:
+### ✔️ Tests
+
+Pytest automatically loads:
 
 ```
-# ===========================
-# Django (Production)
-# ===========================
-
-DJANGO_SETTINGS_MODULE=config.settings.prod
-
-# Strong, random secret key (must be replaced in production)
-DJANGO_SECRET_KEY=!!!_REPLACE_WITH_SECURE_SECRET_KEY_!!!
-
-# Debug must remain disabled in production
-DJANGO_DEBUG=0
-
-# Allowed hosts for production environment
-DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1
-
-# Logging level
-LOG_LEVEL=INFO
-
-# Database connection max lifetime (seconds)
-DB_CONN_MAX_AGE=60
-
-
-# ===========================
-# PostgreSQL (Production)
-# ===========================
-
-POSTGRES_DB=payouts_prod
-POSTGRES_USER=payouts_user
-POSTGRES_PASSWORD=!!!_REPLACE_WITH_SECURE_PASSWORD_!!!
-POSTGRES_HOST=db
-POSTGRES_PORT=5432
-
-
-# ===========================
-# Redis / Celery (Production)
-# ===========================
-
-# General-purpose Redis URL
-REDIS_URL=redis://redis:6379/0
-
-# Celery broker
-CELERY_BROKER_URL=redis://redis:6379/0
-
-# Redis instance for Django cache
-REDIS_CACHE_URL=redis://redis:6379/2
+DJANGO_SETTINGS_MODULE=config.settings.test
 ```
+
+This environment uses:
+
+- fast password hasher  
+- local memory cache  
+- Celery eager mode  
+- lightweight DB configuration  
 
 ---
 
-## ▶️ Running in Development
+## ▶️ Development
 
-### 0. Prerequisites
-
-- Docker & Docker Compose
-- `make`
-
-### 1. Build dev images
+Build:
 
 ```bash
 make build
 ```
 
-### 2. Start dev environment
+Up:
 
 ```bash
 make up
 ```
 
-This will start:
-
-- `web` – Django dev server (`runserver`)
-- `db` – PostgreSQL
-- `redis` – Redis
-- `worker` – Celery worker (runs in background as a separate service)
-
-### 3. Apply migrations
+Migrate:
 
 ```bash
 make migrate
 ```
 
-### 4. Create superuser (optional)
-
-```bash
-make createsuperuser
-```
-
-### 5. Useful dev commands
-
-```bash
-make logs         # follow all dev logs
-make web-shell    # bash shell inside web container
-make worker-logs  # follow Celery worker logs
-make runserver    # run Django dev server manually (if needed)
-```
-
-Application will be available at:
-
-- API: `http://localhost:8000/api/payouts/`
-- Admin: `http://localhost:8000/admin/`
-- Healthcheck: `http://localhost:8000/health/`
-
 ---
 
-## 🚀 Running in Production (Docker Compose)
+## 🚀 Production
 
-The `docker-compose.prod.yml` file starts a **Gunicorn-based** Django app and a Celery worker, using separate volumes for PostgreSQL and Redis.
-
-### 1. Build production images
+Build:
 
 ```bash
 make build-prod
 ```
 
-### 2. Start production stack
+Run:
 
 ```bash
 make up-prod
 ```
 
-This starts:
-
-- `payouts_web`    – Gunicorn serving Django (`config.wsgi:application`)
-- `payouts_worker` – Celery worker
-- `payouts_db`     – PostgreSQL (prod DB)
-- `payouts_redis`  – Redis
-
-### 3. Run migrations in prod
-
-```bash
-make migrate-prod
-```
-
-### 4. Create superuser in prod
-
-```bash
-make createsuperuser-prod
-```
-
-### 5. Useful prod commands
-
-```bash
-make logs-prod    # follow prod logs
-make down-prod    # stop prod stack
-make prod-shell   # bash shell inside prod web container
-```
-
-By default, Gunicorn listens on:
-
-```text
-http://0.0.0.0:8000
-```
-
-In a real deployment, this would typically sit behind a reverse proxy such as Nginx.
-
----
-
-## 🔧 Maintenance & Utilities
-
-### Clean Python artifacts
-
-```bash
-make clean
-# removes *.pyc and __pycache__ folders
-```
-
-### Clear caches (Django, pytest, ruff, coverage)
-
-```bash
-make cache-clear
-# runs Django clear_cache and removes local cache dirs
-```
-
----
-
-## 🧹 Code Quality & Structure
-
-The codebase is structured for:
-
-- clear separation of domain and infrastructure  
-- minimal framework leakage into the domain layer  
-- testability of each layer in isolation  
-- explicit event-driven flows instead of hidden side effects  
-
-The combination of:
-
-- DDD-inspired structure  
-- Celery-based async workflow  
-- Redis caching with versioning  
-- high test coverage  
-- Dockerized dev/prod setups  
-
-makes this service a compact but realistic example of how a real-world payout processing backend can be designed.
-
 ---
 
 ## 💬 Contact
 
-For questions or feedback, feel free to reach out.
+For questions or feedback — feel free to reach out.
+
