@@ -1,43 +1,37 @@
 """
 base.py
 
-Базовые (общие) настройки Django-проекта.
-Все окружения (dev, prod, test) будут наследоваться от этих настроек
-и могут переопределять часть из них.
+Base Django settings shared across all environments (dev, prod, test).
+Environment-specific settings override these defaults in dev.py / prod.py / test.py.
 """
 
-from pathlib import Path
 import os
+from pathlib import Path
 
 # ==============================
-# БАЗОВЫЕ ПУТИ ПРОЕКТА
+# PATHS
 # ==============================
 
-# BASE_DIR будет указывать на папку backend/
+# BASE_DIR points to the backend/ directory
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
-# Расшифровка:
-# __file__                    → config/settings/base.py
-# .parent                     → config/settings
-# .parent                     → config
-# .parent                     → backend  ← это и есть наш BASE_DIR
 
 
 # ==============================
-# БАЗОВЫЕ НАСТРОЙКИ
+# CORE SETTINGS
 # ==============================
 
-# В base.py мы не хардкодим секретный ключ и debug.
-# Они будут переопределяться в dev/prod через переменные окружения
-# и файлы dev.py/prod.py.
+# Secret key is provided via environment (see dev/prod env files)
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "unsafe-dev-key-change-me")
 
-DEBUG = False  # по умолчанию выключен, включаем только в dev.py
+# Debug is disabled by default and explicitly enabled only in dev.py
+DEBUG = False
 
-ALLOWED_HOSTS: list[str] = []  # в dev можно оставить пустым или ['*']
+# Will be overridden in dev/prod settings if needed
+ALLOWED_HOSTS: list[str] = []
 
 
 # ==============================
-# ПРИЛОЖЕНИЯ
+# APPLICATIONS
 # ==============================
 
 DJANGO_APPS = [
@@ -49,16 +43,14 @@ DJANGO_APPS = [
     "django.contrib.staticfiles",
 ]
 
-# 2) Сторонние библиотеки (DRF, celery, django-filter и т.д.)
 THIRD_PARTY_APPS = [
     "rest_framework",
     # "django_celery_results",
     # "django_celery_beat",
 ]
 
-# 3) Локальные приложения проекта (наш домен)
 LOCAL_APPS = [
-    "payouts",
+    "payouts.apps.PayoutsConfig",
     # "core",
 ]
 
@@ -81,7 +73,7 @@ MIDDLEWARE = [
 
 
 # ==============================
-# URL / WSGI
+# URL / WSGI / ASGI
 # ==============================
 
 ROOT_URLCONF = "config.urls"
@@ -91,31 +83,29 @@ ASGI_APPLICATION = "config.asgi.application"
 
 
 # ==============================
-# БАЗА ДАННЫХ
+# DATABASE
 # ==============================
 
-# В base.py задаём конфиг Postgres через переменные окружения.
-# В dev/prod будем использовать один и тот же конфиг,
-# просто значения переменных будут разными (.env.dev, .env.prod).
+# PostgreSQL configuration is driven by environment variables.
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": os.getenv("POSTGRES_DB", "payouts_dev"),
         "USER": os.getenv("POSTGRES_USER", "payouts_user"),
         "PASSWORD": os.getenv("POSTGRES_PASSWORD", "payouts_password"),
-        "HOST": os.getenv("POSTGRES_HOST", "db"),  # имя сервиса из docker-compose
+        "HOST": os.getenv("POSTGRES_HOST", "db"),  # service name from docker-compose
         "PORT": os.getenv("POSTGRES_PORT", "5432"),
     }
 }
 
 
 # ==============================
-# ЯЗЫК / ВРЕМЯ / ЛОКАЛЬ
+# I18N / TIMEZONE
 # ==============================
 
 LANGUAGE_CODE = "en-us"
 
-TIME_ZONE = "UTC"  # позже можно поменять на "Europe/Kyiv", если захочешь
+TIME_ZONE = "UTC"
 
 USE_I18N = True
 USE_TZ = True
@@ -126,7 +116,6 @@ USE_TZ = True
 # ==============================
 
 STATIC_URL = "static/"
-
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
 MEDIA_URL = "media/"
@@ -134,7 +123,7 @@ MEDIA_ROOT = BASE_DIR / "media"
 
 
 # ==============================
-# ПАРОЛИ, ВАЛИДАТОРЫ, ТEMPLATES и т.д.
+# AUTH / PASSWORDS / TEMPLATES
 # ==============================
 
 AUTH_PASSWORD_VALIDATORS = [
@@ -155,7 +144,8 @@ AUTH_PASSWORD_VALIDATORS = [
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],  # сюда можно будет добавить глобальные шаблоны, если они появятся
+        # Global template dirs can be added here if needed
+        "DIRS": [],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -175,6 +165,11 @@ TEMPLATES = [
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+
+# ==============================
+# DRF
+# ==============================
+
 REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": [
         "rest_framework.renderers.JSONRenderer",
@@ -183,8 +178,104 @@ REST_FRAMEWORK = {
         "rest_framework.parsers.JSONParser",
     ],
     "EXCEPTION_HANDLER": "config.interfaces.http.exceptions.custom_exception_handler",
-
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework.authentication.SessionAuthentication",
     ],
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "100/day",
+        "user": "1000/day",
+    },
+}
+
+
+# ==============================
+# CELERY
+# ==============================
+
+CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://redis:6379/0")
+
+# We ignore task results, so no result backend is configured
+CELERY_RESULT_BACKEND = None
+CELERY_TASK_IGNORE_RESULT = True
+
+CELERY_TASK_ACKS_LATE = True
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
+CELERY_TASK_REJECT_ON_WORKER_LOST = True
+
+CELERY_TASK_TIME_LIMIT = 30
+CELERY_TASK_SOFT_TIME_LIMIT = 20
+
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+
+# Standard JSON-based serialization
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_TIMEZONE = "UTC"
+
+
+# ==============================
+# DATABASE CONNECTION LIFETIME
+# ==============================
+
+DATABASES["default"]["CONN_MAX_AGE"] = int(os.getenv("DB_CONN_MAX_AGE", "60"))
+
+
+# ==============================
+# CACHE
+# ==============================
+
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": os.getenv("REDIS_CACHE_URL", "redis://redis:6379/2"),
+    }
+}
+
+
+# ==============================
+# LOGGING
+# ==============================
+
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "[{levelname}] {asctime} {name}: {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
+        },
+    },
+    "loggers": {
+        "django": {
+            "handlers": ["console"],
+            "level": os.getenv("DJANGO_LOG_LEVEL", LOG_LEVEL),
+            "propagate": False,
+        },
+        "payouts": {
+            "handlers": ["console"],
+            "level": LOG_LEVEL,
+            "propagate": False,
+        },
+        "infrastructure.payouts": {
+            "handlers": ["console"],
+            "level": LOG_LEVEL,
+            "propagate": False,
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": LOG_LEVEL,
+    },
 }

@@ -1,20 +1,17 @@
 # core/exceptions.py
 
+
 class DomainError(Exception):
-    """Базовая ошибка домена."""
+    """Base class for all domain-level errors."""
 
 
 class DomainValidationError(DomainError):
-    """Бизнес-валидация не прошла (400)."""
+    """Domain validation failed (HTTP 400)."""
 
 
 class DomainNotFoundError(DomainError):
-    """Сущность не найдена (404)."""
+    """Domain entity not found (HTTP 404)."""
 
 
 class DomainPermissionError(DomainError):
-    """Нет прав на операцию (403)."""
-
-
-class DomainConflictError(DomainError):
-    """Конфликт состояния / бизнес-правил (409)."""
+    """Operation not permitted (HTTP 403)."""

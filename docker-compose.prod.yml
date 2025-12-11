@@ -1,43 +1,51 @@
-# docker-compose.prod.yml (PROD)
 services:
   db:
     image: postgres:15-alpine
-    container_name: payouts_db_prod
-    environment:
-      POSTGRES_DB: payouts_prod
-      POSTGRES_USER: payouts_user
-      POSTGRES_PASSWORD: payouts_password
+    container_name: payouts_db
+    env_file:
+      - .env.prod
     volumes:
       - postgres_data_prod:/var/lib/postgresql/data
     restart: always
+    # Port publishing is disabled in production (database is internal-only)
+    # ports:
+    #   - "5432:5432"
 
   redis:
     image: redis:7-alpine
-    container_name: payouts_redis_prod
+    container_name: payouts_redis
     volumes:
       - redis_data_prod:/data
     restart: always
+    # Redis is internal-only in production
+    # ports:
+    #   - "6379:6379"
 
   web:
     build:
       context: .
-      dockerfile: Dockerfile       # ← PROD Dockerfile
-    container_name: payouts_web_prod
+      dockerfile: Dockerfile
+    container_name: payouts_web
+    command: >
+      gunicorn config.wsgi:application
+      --bind 0.0.0.0:8000
+      --workers 4
     env_file:
       - .env.prod
     depends_on:
       - db
       - redis
     ports:
-      - "8000:8000"                # на реальном сервере можно "80:8000"
+      - "8000:8000"  # Public HTTP endpoint
     restart: always
 
   worker:
     build:
       context: .
-      dockerfile: Dockerfile       # ← тот же prod-образ
-    container_name: payouts_worker_prod
-    command: ["bash", "-c", "celery -A config worker -l info"]
+      dockerfile: Dockerfile
+    container_name: payouts_worker
+    command: >
+      celery -A config worker -l info
     env_file:
       - .env.prod
     depends_on:
