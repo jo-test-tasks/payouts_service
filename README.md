@@ -1,5 +1,5 @@
 # Payouts Service
-Made with ❤️ by Evhen
+Made with ❤️ by Yevhen
 
 A production-grade payout processing backend built with **Django**, **DRF**, **Celery**, **Redis**, and **PostgreSQL**.  
 Designed using **Clean Architecture** and **DDD principles** to keep business logic isolated, infrastructure interchangeable, and the system maintainable and extensible.
